@@ -1,0 +1,21 @@
+[package]
+name = "multibg-sway"
+version = "0.1.0"
+authors = ["Gergő Sályi <salyigergo94@gmail.com>"]
+edition = "2021"
+description = "Set a different wallpaper for the background of each Sway workspace"
+license = "MIT OR Apache-2.0"
+keywords = ["wallpaper", "background", "desktop", "wayland", "sway"]
+categories = ["command-line-utilities", "multimedia::images"]
+
+[dependencies]
+clap = { version = "4.2.1", features = ["derive"] }
+env_logger = "0.10.0"
+image = "0.24.6"
+log = "0.4.17"
+mio = { version = "0.8.6", features = ["os-ext", "os-poll"] }
+swayipc = "3.0.1"
+
+[dependencies.smithay-client-toolkit]
+git = "https://github.com/Smithay/client-toolkit.git"
+rev = "389a4f21872a99a3ba346cc3dabd55c4079ec191" # master branch as of 2023-04-07
