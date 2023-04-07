@@ -896,7 +896,8 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 [[package]]
 name = "smithay-client-toolkit"
 version = "0.17.0"
-source = "git+https://github.com/Smithay/client-toolkit.git?rev=389a4f21872a99a3ba346cc3dabd55c4079ec191#389a4f21872a99a3ba346cc3dabd55c4079ec191"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1476c3d89bb67079264b88aaf4f14358353318397e083b7c4e8c14517f55de7"
 dependencies = [
  "bitflags",
  "calloop",
