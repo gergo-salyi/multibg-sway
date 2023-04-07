@@ -41,6 +41,8 @@ pub struct State {
     pub pixel_format: Option<wl_shm::Format>,
     pub background_layers: Vec<BackgroundLayer>,
     pub sway_connection_task: SwayConnectionTask,
+    pub brightness: i32,
+    pub contrast: f32,
 }
 
 impl State {
@@ -181,7 +183,9 @@ impl OutputHandler for State {
         let workspace_backgrounds = match workspace_bgs_from_output_image_dir(
             &output_wallpaper_dir,
             &mut self.shm_slot_pool,
-            pixel_format
+            pixel_format,
+            self.brightness,
+            self.contrast
         ) {
             Ok(workspace_bgs) => {
                 debug!(
@@ -341,6 +345,9 @@ impl BackgroundLayer
 
         let Some(workspace_bg) = self.workspace_backgrounds.iter()
             .find(|workspace_bg| workspace_bg.workspace_name == workspace_name)
+            .or_else(|| self.workspace_backgrounds.iter()
+                .find(|workspace_bg| workspace_bg.workspace_name == "_default")
+            )
         else {
             error!(
 "There is no wallpaper image on output '{}' for workspace '{}', only for: {}",

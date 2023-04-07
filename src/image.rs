@@ -14,6 +14,8 @@ pub fn workspace_bgs_from_output_image_dir(
     dir_path: impl AsRef<Path>, 
     slot_pool: &mut SlotPool,
     format: wl_shm::Format,
+    brightness: i32,
+    contrast: f32,
 )
     -> Result<Vec<WorkspaceBackground>, String>
 {
@@ -34,18 +36,8 @@ pub fn workspace_bgs_from_output_image_dir(
                 continue;
             }
         };
-        
-        // Resolve symlinks
-        let path = match entry.path().canonicalize() {
-            Ok(file_type) => file_type,
-            Err(e) => {
-                error!(
-                    "Skipping '{:?}' in '{:?}' due to an error: {}",
-                    entry.path(), dir_path.as_ref(), e
-                );
-                continue;
-            }
-        };
+
+        let path = entry.path();
 
         // Skip dirs
         if path.is_dir() { continue }
@@ -71,11 +63,16 @@ pub fn workspace_bgs_from_output_image_dir(
             }
         };
 
-        let image = raw_image
-            // It is possible to adjust the contrast and brightness here
-            // .adjust_contrast(-25.0)
-            // .brighten(-60)
-            .into_rgb8();
+        // It is possible to adjust the contrast and brightness here
+        let mut image = raw_image;
+        if contrast != 0.0 {
+            image = image.adjust_contrast(contrast)
+        }
+        if brightness != 0 {
+            image = image.brighten(brightness)
+        }
+
+        let image = image.into_rgb8();
 
         let buffer = match format {
             wl_shm::Format::Xrgb8888 => 

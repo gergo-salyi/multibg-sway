@@ -89,6 +89,8 @@ fn main()
         sway_connection_task: SwayConnectionTask::new(
             tx.clone(), Arc::clone(&waker)
         ),
+        brightness: cli.brightness.unwrap_or(0),
+        contrast: cli.contrast.unwrap_or(0.0)
     };
 
     event_queue.roundtrip(&mut state).unwrap();
