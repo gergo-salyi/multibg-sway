@@ -66,7 +66,9 @@ It is recommended to edit the wallpaper images in a dedicated image editor.
 Nevertheless the contrast and brightness might be adjusted here:
 
     $ multibg-sway --contrast=-25 --brightness=-60 ~/my_wallpapers
-")]
+
+In case of errors multibg-sway logs to stderr and tries to continue.
+One may wish to redirect stderr if multibg-sway is being run as a daemon.")]
 pub struct Cli {
     /// adjust contrast, eg. -c=-25 (default: 0)
     #[arg(short, long)]

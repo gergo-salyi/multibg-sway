@@ -53,6 +53,8 @@ It is recommended to edit the wallpaper images in a dedicated image editor. Neve
 
     $ multibg-sway --contrast=-25 --brightness=-60 ~/my_wallpapers
 
+In case of errors multibg-sway logs to stderr and tries to continue. One may wish to redirect stderr if multibg-sway is being run as a daemon.
+
 ## Installation
 - With Rust toolchain:
 - For Arch Linux from AUR:
