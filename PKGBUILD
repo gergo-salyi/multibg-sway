@@ -10,7 +10,7 @@ depends=('gcc-libs' 'glibc')
 makedepends=('cargo')
 optdepends=('sway: window manager to set the wallpapers with')
 source=("$pkgname-$pkgver.tar.gz::https://static.crates.io/crates/$pkgname/$pkgname-$pkgver.crate")
-sha256sums=('e7a445d07c377bb23e691f3667540add098312d471e1b95d5e56691638f9c58c')
+sha256sums=('c516a6e5aa8c898be86a662c496748c0e57df449732aa4bd7359c8450cf61c42')
 
 prepare() {
     cd "$pkgname-$pkgver"
