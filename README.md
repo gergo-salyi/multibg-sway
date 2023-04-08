@@ -31,7 +31,7 @@ In more detail:
 
 Wallpaper images are not resized by multibg-sway currently, so they should have the same resolution as the output
 
-### Example:
+### Example
 
 For one having a laptop with a built-in display eDP-1 and an external monitor HDMI-A-1, wallpapers can be arranged such as:
 
@@ -56,11 +56,19 @@ It is recommended to edit the wallpaper images in a dedicated image editor. Neve
 In case of errors multibg-sway logs to stderr and tries to continue. One may wish to redirect stderr if multibg-sway is being run as a daemon.
 
 ## Installation
-- With Rust toolchain:
-- For Arch Linux from AUR:
+
+- With Rust:
+
+      $ cargo install --locked multibg-sway
+      
+- For Arch Linux from AUR: [https://aur.archlinux.org/packages/multibg-sway](https://aur.archlinux.org/packages/multibg-sway)
+  - eg. with paru
+
+        $ paru -S multibg-sway
 
 ## Alternatives
-- swaybg
-- swww
-- mpvpaper
-- oguri
+
+- [swaybg](https://github.com/swaywm/swaybg)
+- [swww](https://github.com/Horus645/swww)
+- [mpvpaper](https://github.com/GhostNaN/mpvpaper)
+- [oguri](https://github.com/vilhalmer/oguri)
