@@ -1,6 +1,6 @@
 # Maintainer: Gergő Sályi <salyigergo94@gmail.com>
 pkgname=multibg-sway
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='Set a different wallpaper for the background of each Sway workspace'
 arch=('x86_64' 'i686' 'pentium4' 'armv7h' 'aarch64')
