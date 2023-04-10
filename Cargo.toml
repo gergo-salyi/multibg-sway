@@ -18,5 +18,8 @@ env_logger = "0.10.0"
 image = "0.24.6"
 log = "0.4.17"
 mio = { version = "0.8.6", features = ["os-ext", "os-poll"] }
-smithay-client-toolkit = "0.17.0"
 swayipc = "3.0.1"
+
+[dependencies.smithay-client-toolkit]
+version = "0.17.0"
+default-features = false
