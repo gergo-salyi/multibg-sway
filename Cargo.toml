@@ -25,5 +25,16 @@ swayipc = "3.0.1"
 version = "0.17.0"
 default-features = false
 
+
+# Apply yet unreleased fix for fast_image_resize
+# 
+# Current releases of fast_image_resize are broken on rust nightly
+# https://github.com/Cykooz/fast_image_resize/issues/15
+#
+# Issue is already fixed on master branch but the new verison is not released yet
+# So temporarly use a clone of fast_image_resize current master branch
+# as a local git submodule and add this corresponding patch field here
+#
+# This will be removed once fast_image_resize 2.7.1 is out
 [patch.crates-io]
 fast_image_resize = { path = "patch/fast_image_resize" }
