@@ -33,15 +33,16 @@ In more detail:
     by sway defaults: 1, 2, 3, ..., 10
 
     - Can be a manually defined workspace name (eg. in sway config), 
-      but renaming workspaces while multibg_sway is running 
+      but renaming workspaces while multibg-sway is running 
       is not supported currently
 
     - Can define a fallback wallpaper with the special name: _default
 
     - Can be a symlink to use a wallpaper image for multiple workspaces
 
-Wallpaper images are not resized by multibg-sway currently, 
-so they should have the same resolution as the output
+Wallpaper images are now automatically resized at startup to fill the output.
+Still it is better to have wallpaper images the same resolution as the output,
+which automatically avoids resizing operations and decreases startup time.
 
 Example:
 

@@ -25,11 +25,11 @@ In more detail:
         $ swaymsg -t get_outputs
 
 - **workspace_name**: The name of the sway workspace, by sway defaults: 1, 2, 3, ..., 10
-  - Can be a manually defined workspace name (eg. in sway config), but renaming workspaces while multibg_sway is running is not supported currently
+  - Can be a manually defined workspace name (eg. in sway config), but renaming workspaces while multibg-sway is running is not supported currently
   - Can define a fallback wallpaper with the special name: _default
   - Can be a symlink to use a wallpaper image for multiple workspaces
 
-Wallpaper images are not resized by multibg-sway currently, so they should have the same resolution as the output
+Wallpaper images are now automatically resized at startup to _fill_ the output. Still it is better to have wallpaper images the same resolution as the output, which automatically avoids resizing operations and decreases startup time.
 
 ### Example
 
@@ -70,5 +70,7 @@ In case of errors multibg-sway logs to stderr and tries to continue. One may wis
 
 - [swaybg](https://github.com/swaywm/swaybg)
 - [swww](https://github.com/Horus645/swww)
+- [wpaperd](https://github.com/danyspin97/wpaperd)
+- [hyprpaper](https://github.com/hyprwm/hyprpaper)
 - [mpvpaper](https://github.com/GhostNaN/mpvpaper)
 - [oguri](https://github.com/vilhalmer/oguri)
