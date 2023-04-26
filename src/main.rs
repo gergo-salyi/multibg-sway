@@ -119,7 +119,14 @@ fn main()
         event_queue.dispatch_pending(&mut state).unwrap();
         let mut read_guard_option = Some(event_queue.prepare_read().unwrap());
 
-        poll.poll(&mut events, None).unwrap();
+        if let Err(poll_error) = poll.poll(&mut events, None) {
+            if poll_error.kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            else {
+                panic!("Main event loop poll failed: {:?}", poll_error);
+            }
+        }
 
         for event in events.iter() {
             match event.token() {
