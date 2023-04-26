@@ -15,6 +15,7 @@ exclude = ["PKGBUILD"]
 [dependencies]
 clap = { version = "4.2.1", features = ["derive"] }
 env_logger = "0.10.0"
+fast_image_resize = "2.7.0"
 image = "0.24.6"
 log = "0.4.17"
 mio = { version = "0.8.6", features = ["os-ext", "os-poll"] }
