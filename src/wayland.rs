@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{num::NonZeroU32, path::PathBuf};
 
 use log::{debug, error};
 use smithay_client_toolkit::{
@@ -160,6 +160,23 @@ impl OutputHandler for State {
             output_name, width, height
         );
 
+        if !width.is_positive() {
+            error!(
+                "New output '{}' has a non-positive width: {}, skipping",
+                output_name,
+                width
+            );
+            return;
+        }
+        if !height.is_positive() {
+            error!(
+                "New output '{}' has a non-positive height: {}, skipping",
+                output_name,
+                height
+            );
+            return;
+        }
+
         let surface = self.compositor_state.create_surface(qh);
 
         let layer = self.layer_shell.create_layer_surface(
@@ -185,7 +202,9 @@ impl OutputHandler for State {
             &mut self.shm_slot_pool,
             pixel_format,
             self.brightness,
-            self.contrast
+            self.contrast,
+            NonZeroU32::new(width as u32).unwrap(),
+            NonZeroU32::new(height as u32).unwrap()
         ) {
             Ok(workspace_bgs) => {
                 debug!(

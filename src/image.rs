@@ -1,10 +1,12 @@
 use std::{
     fs::read_dir,
+    num::NonZeroU32,
     path::Path
 };
 
-use log::error;
+use fast_image_resize as fr;
 use image::{ImageBuffer, Rgb, ImageError};
+use log::{debug, error};
 use smithay_client_toolkit::shm::slot::{Buffer, SlotPool};
 use smithay_client_toolkit::reexports::client::protocol::wl_shm;
 
@@ -16,6 +18,8 @@ pub fn workspace_bgs_from_output_image_dir(
     format: wl_shm::Format,
     brightness: i32,
     contrast: f32,
+    surface_width: NonZeroU32,
+    surface_height: NonZeroU32,
 )
     -> Result<Vec<WorkspaceBackground>, String>
 {
@@ -72,7 +76,48 @@ pub fn workspace_bgs_from_output_image_dir(
             image = image.brighten(brightness)
         }
 
-        let image = image.into_rgb8();
+        let mut image = image.into_rgb8();
+        
+        let Some(image_width) = NonZeroU32::new(image.width()) else {
+            error!(
+                "Image '{}' has zero width, skipping", workspace_name
+            );
+            continue;
+        };
+        let Some(image_height) = NonZeroU32::new(image.height()) else {
+            error!(
+                "Image '{}' has zero height, skipping", workspace_name
+            );
+            continue;
+        };
+
+        if image_width != surface_width || image_height != surface_height
+        {
+            debug!("Resizing image '{}' from {}x{} to {}x{}",
+                workspace_name, 
+                image_width, image_height,
+                surface_width, surface_height
+            );
+
+            let src_image = fr::Image::from_vec_u8(
+                image_width,
+                image_height,
+                image.into_raw(),
+                fr::PixelType::U8x3,
+            ).unwrap();
+
+            let dst_image = resize_image_with_cropping(
+                src_image.view(),
+                surface_width,
+                surface_height,
+            );
+
+            image = ImageBuffer::from_raw(
+                surface_width.get(), 
+                surface_height.get(), 
+                dst_image.into_vec()
+            ).unwrap();
+        }
 
         let buffer = match format {
             wl_shm::Format::Xrgb8888 => 
@@ -142,3 +187,30 @@ fn buffer_bgr888_from_image(
     buffer
 }
 
+// Copied example from fast_image_resize
+fn resize_image_with_cropping(
+    mut src_view: fr::DynamicImageView,
+    dst_width: NonZeroU32,
+    dst_height: NonZeroU32
+) -> fr::Image {
+    // Set cropping parameters
+    src_view.set_crop_box_to_fit_dst_size(dst_width, dst_height, None);
+
+    // Create container for data of destination image
+    let mut dst_image = fr::Image::new(
+        dst_width,
+        dst_height,
+        src_view.pixel_type(),
+    );
+    // Get mutable view of destination image data
+    let mut dst_view = dst_image.view_mut();
+
+    // Create Resizer instance and resize source image
+    // into buffer of destination image
+    let mut resizer = fr::Resizer::new(
+        fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3)
+    );
+    resizer.resize(&src_view, &mut dst_view).unwrap();
+
+    dst_image
+}
