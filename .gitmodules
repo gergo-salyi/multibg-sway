@@ -1,0 +1,3 @@
+[submodule "patch/fast_image_resize"]
+	path = patch/fast_image_resize
+	url = https://github.com/Cykooz/fast_image_resize

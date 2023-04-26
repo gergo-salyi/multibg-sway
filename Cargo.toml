@@ -24,3 +24,6 @@ swayipc = "3.0.1"
 [dependencies.smithay-client-toolkit]
 version = "0.17.0"
 default-features = false
+
+[patch.crates-io]
+fast_image_resize = { path = "patch/fast_image_resize" }
