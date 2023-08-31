@@ -430,6 +430,15 @@ impl BackgroundLayer
             );
             return;
         };
+
+        if workspace_bg.buffer.slot().has_active_buffers() {
+            debug!(
+"Skipping draw on output '{}' for workspace '{}' because its buffer already active",
+                self.output_name,
+                workspace_name,
+            );
+            return;
+        }
         
         // Attach and commit to new workspace background
         if let Err(e) = workspace_bg.buffer.attach_to(self.layer.wl_surface()) {
