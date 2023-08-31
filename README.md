@@ -57,7 +57,7 @@ In case of errors multibg-sway logs to stderr and tries to continue. One may wis
 
 ### Resource usage
 
-Loaded wallpapers are stored uncompressed to enable fast wallpaper switching with nearly zero CPU use. For example for 10 full HD wallpaper this means 10*1920*1080*4 = 83 MB graphics memory use.
+Loaded wallpapers are stored uncompressed to enable fast wallpaper switching with nearly zero CPU use. For example for 10 full HD wallpaper this means 10\*1920\*1080\*4 = 83 MB graphics memory use.
 
 Because multibg-sway doesn't have its own GPU context and manages graphics memory through sway, all this usage might be reported as additional memory used by the sway process.
 
