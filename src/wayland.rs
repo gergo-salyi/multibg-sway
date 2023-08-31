@@ -35,7 +35,6 @@ pub struct State {
     pub registry_state: RegistryState,
     pub output_state: OutputState,
     pub shm: Shm,
-    pub shm_slot_pool: SlotPool,
     pub layer_shell: LayerShell,
     pub wallpaper_dir: PathBuf,
     pub pixel_format: Option<wl_shm::Format>,
@@ -177,11 +176,6 @@ impl OutputHandler for State {
             output_name, width, height
         );
 
-        debug!(
-            "Slot pool size before loading wallpapers: {} KiB",
-            self.shm_slot_pool.len() / 1024
-        );
-
         let surface = self.compositor_state.create_surface(qh);
 
         let layer = self.layer_shell.create_layer_surface(
@@ -202,9 +196,13 @@ impl OutputHandler for State {
 
         let output_wallpaper_dir = self.wallpaper_dir.join(&output_name);
 
+        // Initialize slot pool with a minimum size (0 is not allowed)
+        // it will be automatically resized later
+        let mut shm_slot_pool = SlotPool::new(1, &self.shm).unwrap();
+
         let workspace_backgrounds = match workspace_bgs_from_output_image_dir(
             &output_wallpaper_dir,
-            &mut self.shm_slot_pool,
+            &mut shm_slot_pool,
             pixel_format,
             self.brightness,
             self.contrast,
@@ -231,8 +229,9 @@ impl OutputHandler for State {
         };
         
         debug!(
-            "Slot pool size after loading wallpapers: {} KiB",
-            self.shm_slot_pool.len() / 1024
+            "Shm slot pool size for output '{}' after loading wallpapers: {} KiB",
+            output_name,
+            shm_slot_pool.len() / 1024
         );
 
         self.background_layers.push(BackgroundLayer { 
@@ -242,7 +241,15 @@ impl OutputHandler for State {
             layer, 
             configured: false,
             workspace_backgrounds,
+            shm_slot_pool,
         });
+        
+        debug!(
+            "New sum of shm slot pool sizes for all outputs: {} KiB",
+            self.background_layers.iter()
+                .map(|bg_layer| bg_layer.shm_slot_pool.len())
+                .sum::<usize>() / 1024
+        );
     }
 
     fn update_output(
@@ -321,12 +328,6 @@ impl OutputHandler for State {
             "Output destroyed: {}",
             name,
         );
-        
-        debug!(
-            "Slot pool size before dropping wallpapers: {} KiB",
-            self.shm_slot_pool.len() / 1024,
-        );
-
 
         if let Some(bg_layer_index) = self.background_layers.iter()
             .position(|bg_layers| bg_layers.output_name == name)
@@ -369,8 +370,10 @@ impl OutputHandler for State {
         }
         
         debug!(
-            "Slot pool size after dropping wallpapers: {} KiB",
-            self.shm_slot_pool.len() / 1024
+            "New sum of shm slot pool sizes for all outputs: {} KiB",
+            self.background_layers.iter()
+                .map(|bg_layer| bg_layer.shm_slot_pool.len())
+                .sum::<usize>() / 1024
         );
     }
 }
@@ -401,6 +404,7 @@ pub struct BackgroundLayer {
     pub layer: LayerSurface,
     pub configured: bool,
     pub workspace_backgrounds: Vec<WorkspaceBackground>,
+    pub shm_slot_pool: SlotPool
 }
 impl BackgroundLayer 
 {
