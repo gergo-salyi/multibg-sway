@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.1.4 - 2023-08-31
-- Allocate/release graphics memory per output when the output is connected/disconnected. This may help with [#2](https://github.com/gergo-salyi/multibg-sway/issues/1)
+- Allocate/release graphics memory per output when the output is connected/disconnected. This may help with [#2](https://github.com/gergo-salyi/multibg-sway/issues/2)
 - Log graphics memory use (our wayland shared memory pool sizes)
 - Minor fix to avoid a logged error on redrawing backgrounds already being drawn
 - Update dependencies
