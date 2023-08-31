@@ -1,6 +1,6 @@
 use std::{num::NonZeroU32, path::PathBuf};
 
-use log::{debug, error};
+use log::{debug, error, warn};
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, 
     delegate_shm,
@@ -155,11 +155,6 @@ impl OutputHandler for State {
             return;
         };
 
-        debug!(
-            "New output, name: {}, resolution: {}x{}",
-            output_name, width, height
-        );
-
         if !width.is_positive() {
             error!(
                 "New output '{}' has a non-positive width: {}, skipping",
@@ -176,6 +171,16 @@ impl OutputHandler for State {
             );
             return;
         }
+
+        debug!(
+            "New output, name: {}, resolution: {}x{}",
+            output_name, width, height
+        );
+
+        debug!(
+            "Slot pool size before loading wallpapers: {} KiB",
+            self.shm_slot_pool.len() / 1024
+        );
 
         let surface = self.compositor_state.create_surface(qh);
 
@@ -224,6 +229,11 @@ impl OutputHandler for State {
                 return;
             }
         };
+        
+        debug!(
+            "Slot pool size after loading wallpapers: {} KiB",
+            self.shm_slot_pool.len() / 1024
+        );
 
         self.background_layers.push(BackgroundLayer { 
             output_name, 
@@ -239,23 +249,30 @@ impl OutputHandler for State {
         &mut self,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
-        _output: wl_output::WlOutput,
+        output: wl_output::WlOutput,
     ) {
         // This will only be needed if we implement scaling the wallpapers
         // to the output resolution
-        //
-        // let Some(info) = self.output_state.info(&output)
-        // else {
-        //     error!("Updated output has no output info, skipping");
-        //     return;
-        // };
-        //
-        // let Some(name) = info.name
-        // else {
-        //     error!("Updated output has no name, skipping");
-        //     return;
-        // };
-        // 
+        
+        let Some(info) = self.output_state.info(&output)
+        else {
+            error!("Updated output has no output info, skipping");
+            return;
+        };
+        
+        let Some(name) = info.name
+        else {
+            error!("Updated output has no name, skipping");
+            return;
+        };
+        
+        debug!(
+            "Update output: {}",
+            name
+        );
+
+        warn!("Handling of output updates are not yet implemented");
+        
         // let Some((width, height)) = info.modes.iter()
         //     .find(|mode| mode.current)
         //     .map(|mode| mode.dimensions)
@@ -299,17 +316,47 @@ impl OutputHandler for State {
             error!("Destroyed output has no name, skipping");
             return;
         };
+        
+        debug!(
+            "Output destroyed: {}",
+            name,
+        );
+        
+        debug!(
+            "Slot pool size before dropping wallpapers: {} KiB",
+            self.shm_slot_pool.len() / 1024,
+        );
+
 
         if let Some(bg_layer_index) = self.background_layers.iter()
             .position(|bg_layers| bg_layers.output_name == name)
         {
-            self.background_layers.swap_remove(bg_layer_index);
+            let removed_bg_layer = self.background_layers
+                .swap_remove(bg_layer_index);
 
             // Workspaces on the destroyed output may have been moved anywhere
             // so reset the wallpaper on all the visible workspaces
             self.sway_connection_task.request_visible_workspaces();
 
-            debug!("Destroyed output: {}", name);
+            debug!(
+                "Dropping {} wallpapers on destroyed output for workspaces: {}",
+                removed_bg_layer.workspace_backgrounds.len(),
+                removed_bg_layer.workspace_backgrounds.iter()
+                    .map(|workspace_bg| workspace_bg.workspace_name.as_str())
+                    .collect::<Vec<_>>().join(", ")
+            );
+
+            for workspace_bg in removed_bg_layer.workspace_backgrounds.iter() {
+                if workspace_bg.buffer.slot().has_active_buffers() {
+                    warn!(
+"On destroyed output '{}' workspace background '{}' will be dropped while its shm slot still has active buffers", 
+                        name,
+                        workspace_bg.workspace_name,
+                    );
+                }
+            }
+
+            drop(removed_bg_layer);
         }
         else {
             error!(
@@ -320,6 +367,11 @@ impl OutputHandler for State {
                     .collect::<Vec<_>>().join(", ")
             );
         }
+        
+        debug!(
+            "Slot pool size after dropping wallpapers: {} KiB",
+            self.shm_slot_pool.len() / 1024
+        );
     }
 }
 
