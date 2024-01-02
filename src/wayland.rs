@@ -82,6 +82,15 @@ impl CompositorHandler for State
         _time: u32,
     ) {
     }
+
+    fn transform_changed(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &wl_surface::WlSurface,
+        _new_transform: wl_output::Transform,
+    ) {
+    }
 }
 
 impl LayerShellHandler for State

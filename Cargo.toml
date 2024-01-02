@@ -22,5 +22,5 @@ mio = { version = "0.8.6", features = ["os-ext", "os-poll"] }
 swayipc = "3.0.1"
 
 [dependencies.smithay-client-toolkit]
-version = "0.17.0"
+version = "0.18.0"
 default-features = false
