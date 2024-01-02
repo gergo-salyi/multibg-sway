@@ -181,11 +181,17 @@ impl OutputHandler for State {
         }
 
         debug!(
-            "New output, name: {}, resolution: {}x{}",
-            output_name, width, height
+            "New output, name: {}, resolution: {}x{}, scale factor: {}",
+            output_name, width, height, info.scale_factor
         );
 
         let surface = self.compositor_state.create_surface(qh);
+
+        // We are a wallpaper and we never want to be scaled 
+        // by the compositor. So we declare that we are already 
+        // correctly scaled no matter the scale factor. 
+        // This will handle integer scale factors.
+        surface.set_buffer_scale(info.scale_factor);
 
         let layer = self.layer_shell.create_layer_surface(
             qh, 
@@ -197,7 +203,10 @@ impl OutputHandler for State {
 
         layer.set_exclusive_zone(-1); // Don't let the status bar push it around
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
-        layer.set_size(width as u32, height as u32);
+        layer.set_size(
+            (width / info.scale_factor) as u32, 
+            (height / info.scale_factor) as u32
+        );
         
         layer.commit();
 
@@ -267,7 +276,7 @@ impl OutputHandler for State {
         _qh: &QueueHandle<Self>,
         output: wl_output::WlOutput,
     ) {
-        // This will only be needed if we implement scaling the wallpapers
+        // This will only be fully needed if we implement scaling the wallpapers
         // to the output resolution
         
         let Some(info) = self.output_state.info(&output)
@@ -281,13 +290,40 @@ impl OutputHandler for State {
             error!("Updated output has no name, skipping");
             return;
         };
+
+        let Some((width, height)) = info.modes.iter()
+            .find(|mode| mode.current)
+            .map(|mode| mode.dimensions)
+        else {
+            error!(
+                "New output '{}' has no current mode set, skipping", 
+                name
+            );
+            return;
+        };
         
         debug!(
-            "Update output: {}",
-            name
+            "Update output, name: {}, resolution: {}x{}, scale factor: {}",
+            name, width, height, info.scale_factor
         );
+        
+        if let Some(bg_layer) = self.background_layers.iter()
+            .find(|bg_layers| bg_layers.output_name == name)
+        {
+            let surface = bg_layer.layer.wl_surface();
+            // We are a wallpaper and we never want to be scaled 
+            // by the compositor. So we declare that we are already 
+            // correctly scaled no matter the scale factor. 
+            // This will handle integer scale factors.
+            surface.set_buffer_scale(info.scale_factor);
+            bg_layer.layer.set_size(
+                (width / info.scale_factor) as u32, 
+                (height / info.scale_factor) as u32
+            );
+            surface.commit();
+        }
 
-        warn!("Handling of output updates are not yet implemented");
+        warn!("Handling of output updates are not yet fully implemented");
         
         // let Some((width, height)) = info.modes.iter()
         //     .find(|mode| mode.current)
