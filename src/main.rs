@@ -67,10 +67,6 @@ fn main()
     let layer_shell = LayerShell::bind(&globals, &qh).unwrap();
     let shm = Shm::bind(&globals, &qh).unwrap();
 
-    // // Initialize slot pool with a minimum size (0 is not allowed)
-    // // it will be automatically resized later
-    // let shm_slot_pool = SlotPool::new(1, &shm).unwrap();
-    
     // Sync tools for sway ipc tasks
     let mut poll = Poll::new().unwrap();
     let waker = Arc::new(Waker::new(poll.registry(), SWAY).unwrap());
@@ -81,7 +77,6 @@ fn main()
         registry_state: RegistryState::new(&globals),
         output_state: OutputState::new(&globals, &qh),
         shm,
-        // shm_slot_pool,
         layer_shell,
         wallpaper_dir,
         pixel_format: None,
