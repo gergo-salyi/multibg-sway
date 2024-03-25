@@ -13,14 +13,14 @@ categories = ["command-line-utilities", "multimedia::images"]
 exclude = ["PKGBUILD"]
 
 [dependencies]
-clap = { version = "4.2.1", features = ["derive"] }
-env_logger = "0.10.0"
-fast_image_resize = "2.7.2"
-image = "0.24.6"
-log = "0.4.17"
-mio = { version = "0.8.6", features = ["os-ext", "os-poll"] }
-swayipc = "3.0.1"
+clap = { version = "4.5.3", features = ["derive"] }
+env_logger = "0.11.3"
+fast_image_resize = "3.0.4"
+image = "0.25.0"
+log = "0.4.21"
+mio = { version = "0.8.11", features = ["os-ext", "os-poll"] }
+swayipc = "3.0.2"
 
 [dependencies.smithay-client-toolkit]
-version = "0.18.0"
+version = "0.18.1"
 default-features = false
