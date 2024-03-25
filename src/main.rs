@@ -31,6 +31,8 @@ use smithay_client_toolkit::reexports::client::{
     backend::{ReadEventsGuard, WaylandError},
     globals::registry_queue_init,
 };
+use smithay_client_toolkit::reexports::protocols
+    ::wp::viewporter::client::wp_viewporter::WpViewporter;
 
 use crate::{
     cli::Cli,
@@ -67,6 +69,11 @@ fn main()
     let layer_shell = LayerShell::bind(&globals, &qh).unwrap();
     let shm = Shm::bind(&globals, &qh).unwrap();
 
+    let registry_state = RegistryState::new(&globals);
+
+    let viewporter: WpViewporter = registry_state
+        .bind_one(&qh, 1..=1, ()).expect("wp_viewporter not available");
+
     // Sync tools for sway ipc tasks
     let mut poll = Poll::new().unwrap();
     let waker = Arc::new(Waker::new(poll.registry(), SWAY).unwrap());
@@ -74,10 +81,11 @@ fn main()
 
     let mut state = State {
         compositor_state,
-        registry_state: RegistryState::new(&globals),
+        registry_state,
         output_state: OutputState::new(&globals, &qh),
         shm,
         layer_shell,
+        viewporter,
         wallpaper_dir,
         pixel_format: None,
         background_layers: Vec::new(),
@@ -85,7 +93,7 @@ fn main()
             tx.clone(), Arc::clone(&waker)
         ),
         brightness: cli.brightness.unwrap_or(0),
-        contrast: cli.contrast.unwrap_or(0.0)
+        contrast: cli.contrast.unwrap_or(0.0),
     };
 
     event_queue.roundtrip(&mut state).unwrap();
