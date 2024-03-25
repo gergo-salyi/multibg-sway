@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.6 - 2024-03-25
+- Fix displaying the wallpapers on outputs with fractional scale factor. This may help with [#5](https://github.com/gergo-salyi/multibg-sway/issues/5)
+
 ## 0.1.5 - 2024-01-02
 - Fix displaying the wallpapers on outputs with higher than 1 integer scale factor. This may help with [#4](https://github.com/gergo-salyi/multibg-sway/issues/4)
 

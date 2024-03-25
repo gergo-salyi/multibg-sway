@@ -674,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "multibg-sway"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "clap",
  "env_logger",
