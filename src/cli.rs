@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
 #[command(author, version, long_about = None, about = "\
@@ -77,6 +77,15 @@ pub struct Cli {
     /// adjust brightness, eg. -b=-60 (default: 0)
     #[arg(short, long)]
     pub brightness: Option<i32>,
+    /// wl_buffer pixel format (default: auto)
+    #[arg(long)]
+    pub pixelformat: Option<PixelFormat>,
     /// directory with: wallpaper_dir/output/workspace_name.{jpg|png|...}
     pub wallpaper_dir: String,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, ValueEnum)]
+pub enum PixelFormat {
+    Auto,
+    Baseline,
 }

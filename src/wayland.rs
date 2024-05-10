@@ -49,6 +49,7 @@ pub struct State {
     pub layer_shell: LayerShell,
     pub viewporter: WpViewporter,
     pub wallpaper_dir: PathBuf,
+    pub force_xrgb8888: bool,
     pub pixel_format: Option<wl_shm::Format>,
     pub background_layers: Vec<BackgroundLayer>,
     pub sway_connection_task: SwayConnectionTask,
@@ -57,19 +58,23 @@ pub struct State {
 }
 
 impl State {
-    fn pixel_format(&mut self) -> wl_shm::Format {
+    fn pixel_format(&mut self) -> wl_shm::Format
+    {
         *self.pixel_format.get_or_insert_with(|| {
-            // Consume less gpu memory by using Bgr888 if available,
-            // fall back to the always supported Xrgb8888 otherwise
-            for format in self.shm.formats() {
-                if let wl_shm::Format::Bgr888 = format {
-                    debug!("Using pixel format: {:?}", format);
-                    return *format
-                }
-                // XXX: One may add Rgb888 and HDR support here
-            }
-            debug!("Using default pixel format: Xrgb8888");
 
+            if !self.force_xrgb8888 {
+                // Consume less gpu memory by using Bgr888 if available,
+                // fall back to the always supported Xrgb8888 otherwise
+                for format in self.shm.formats() {
+                    if let wl_shm::Format::Bgr888 = format {
+                        debug!("Using pixel format: {:?}", format);
+                        return *format
+                    }
+                    // XXX: One may add Rgb888 and HDR support here
+                }
+            }
+
+            debug!("Using default pixel format: Xrgb8888");
             wl_shm::Format::Xrgb8888
         })
     }

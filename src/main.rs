@@ -35,7 +35,7 @@ use smithay_client_toolkit::reexports::protocols
     ::wp::viewporter::client::wp_viewporter::WpViewporter;
 
 use crate::{
-    cli::Cli,
+    cli::{Cli, PixelFormat},
     sway::{SwayConnectionTask, WorkspaceVisible},
     wayland::State,
 };
@@ -87,6 +87,8 @@ fn main()
         layer_shell,
         viewporter,
         wallpaper_dir,
+        force_xrgb8888: cli.pixelformat
+            .is_some_and(|p| p == PixelFormat::Baseline),
         pixel_format: None,
         background_layers: Vec::new(),
         sway_connection_task: SwayConnectionTask::new(
