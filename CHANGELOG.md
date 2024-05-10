@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7 - 2024-05-11
+- Fix image corruption for certain pixel formats when output width is not a multiple of 4 [#6](https://github.com/gergo-salyi/multibg-sway/issues/6)
+- Add the --pixelformat cli argument. Setting --pixelformat=baseline can force wl_buffers to use the wayland default xrgb8888 pixel format if bgr888 or future others would break for any reason
+
 ## 0.1.6 - 2024-03-25
 - Fix displaying the wallpapers on outputs with fractional scale factor. This may help with [#5](https://github.com/gergo-salyi/multibg-sway/issues/5)
 
