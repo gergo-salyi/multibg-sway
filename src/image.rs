@@ -173,16 +173,52 @@ fn buffer_bgr888_from_image(
 ) 
     -> Buffer 
 {
+    // Align buffer stride to both 4 and pixel format block size
+    // Not being aligned to 4 caused
+    // https://github.com/gergo-salyi/multibg-sway/issues/6
+    const BUFFER_STRIDE_ALIGNEMENT: u32 = 4 * 3;
+
+    let width = image.width();
+    let height = image.height();
+    let image_stride = width * 3;
+
+    let unaligned_bytes = image_stride % BUFFER_STRIDE_ALIGNEMENT;
+
+    let buffer_stride =
+    if unaligned_bytes == 0 {
+        image_stride
+    } else {
+        let padding = BUFFER_STRIDE_ALIGNEMENT - unaligned_bytes;
+        image_stride + padding
+    };
+
     let (buffer, canvas) = slot_pool
         .create_buffer(
-            image.width() as i32, 
-            image.height() as i32, 
-            image.width() as i32 * 3,
+            width.try_into().unwrap(),
+            height.try_into().unwrap(),
+            buffer_stride.try_into().unwrap(),
             wl_shm::Format::Bgr888
         )
         .unwrap();
 
-    canvas[..image.len()].copy_from_slice(&image);
+    if unaligned_bytes == 0 {
+        canvas[..image.len()].copy_from_slice(&image);
+    }
+    else {
+        let height: usize = height.try_into().unwrap();
+        let buffer_stride: usize = buffer_stride.try_into().unwrap();
+        let image_stride: usize = image_stride.try_into().unwrap();
+
+        for row in 0..height {
+            let canvas_start = row * buffer_stride;
+            let image_start = row * image_stride;
+            let len = image_stride;
+
+            canvas[canvas_start..(canvas_start + len)].copy_from_slice(
+                &image.as_raw()[image_start..(image_start + len)]
+            );
+        }
+    }
 
     buffer
 }
