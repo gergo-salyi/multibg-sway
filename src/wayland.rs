@@ -360,6 +360,14 @@ logical size: {}x{}",
             );
             return;
         };
+
+        if !width.is_positive() || !height.is_positive() {
+            error!(
+        "Updated output '{}' has non-positive resolution: {} x {}, skipping",
+                output_name, width, height
+            );
+            return;
+        }
         
         let integer_scale_factor = info.scale_factor;
         
