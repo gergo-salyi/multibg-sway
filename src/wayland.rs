@@ -1,7 +1,4 @@
-use std::{
-    num::NonZeroU32, 
-    path::PathBuf
-};
+use std::path::PathBuf;
 
 use log::{debug, error, warn};
 use smithay_client_toolkit::{
@@ -106,6 +103,24 @@ impl CompositorHandler for State
         _qh: &QueueHandle<Self>,
         _surface: &WlSurface,
         _new_transform: wl_output::Transform,
+    ) {
+    }
+
+    fn surface_enter(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &WlSurface,
+        _output: &wl_output::WlOutput,
+    ) {
+    }
+
+    fn surface_leave(
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &WlSurface,
+        _output: &wl_output::WlOutput,
     ) {
     }
 }
@@ -270,8 +285,8 @@ logical size: {}x{}",
             pixel_format,
             self.brightness,
             self.contrast,
-            NonZeroU32::new(width as u32).unwrap(),
-            NonZeroU32::new(height as u32).unwrap()
+            width.try_into().unwrap(),
+            height.try_into().unwrap()
         ) {
             Ok(workspace_bgs) => {
                 debug!(

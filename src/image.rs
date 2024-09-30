@@ -1,11 +1,13 @@
 use std::{
     fs::read_dir,
-    num::NonZeroU32,
-    path::Path
+    path::Path,
 };
 
-use fast_image_resize as fr;
-use image::{ImageBuffer, Rgb, ImageError};
+use fast_image_resize::{
+    FilterType, PixelType, Resizer, ResizeAlg, ResizeOptions,
+    images::Image,
+};
+use image::{ImageBuffer, ImageError, ImageReader, Rgb};
 use log::{debug, error};
 use smithay_client_toolkit::shm::slot::{Buffer, SlotPool};
 use smithay_client_toolkit::reexports::client::protocol::wl_shm;
@@ -18,8 +20,8 @@ pub fn workspace_bgs_from_output_image_dir(
     format: wl_shm::Format,
     brightness: i32,
     contrast: f32,
-    surface_width: NonZeroU32,
-    surface_height: NonZeroU32,
+    surface_width: u32,
+    surface_height: u32,
 )
     -> Result<Vec<WorkspaceBackground>, String>
 {
@@ -50,7 +52,7 @@ pub fn workspace_bgs_from_output_image_dir(
         let workspace_name = path.file_stem().unwrap()
             .to_string_lossy().into_owned();
 
-        let raw_image = match image::io::Reader::open(&path)
+        let raw_image = match ImageReader::open(&path)
             .map_err(ImageError::IoError)
             .and_then(|r| r.with_guessed_format()
                 .map_err(ImageError::IoError)
@@ -77,14 +79,16 @@ pub fn workspace_bgs_from_output_image_dir(
         }
 
         let mut image = image.into_rgb8();
+        let image_width = image.width();
+        let image_height = image.height();
         
-        let Some(image_width) = NonZeroU32::new(image.width()) else {
+        if image_width == 0 {
             error!(
                 "Image '{}' has zero width, skipping", workspace_name
             );
             continue;
         };
-        let Some(image_height) = NonZeroU32::new(image.height()) else {
+        if image_height == 0 {
             error!(
                 "Image '{}' has zero height, skipping", workspace_name
             );
@@ -99,22 +103,31 @@ pub fn workspace_bgs_from_output_image_dir(
                 surface_width, surface_height
             );
 
-            let src_image = fr::Image::from_vec_u8(
+            let src_image = Image::from_vec_u8(
                 image_width,
                 image_height,
                 image.into_raw(),
-                fr::PixelType::U8x3,
+                PixelType::U8x3,
             ).unwrap();
 
-            let dst_image = resize_image_with_cropping(
-                src_image.view(),
+            let mut dst_image = Image::new(
                 surface_width,
                 surface_height,
+                PixelType::U8x3,
             );
 
+            let mut resizer = Resizer::new();
+            resizer.resize(
+                &src_image,
+                &mut dst_image,
+                &ResizeOptions::new()
+                    .fit_into_destination(None)
+                    .resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3))
+            ).unwrap();
+
             image = ImageBuffer::from_raw(
-                surface_width.get(), 
-                surface_height.get(), 
+                surface_width, 
+                surface_height, 
                 dst_image.into_vec()
             ).unwrap();
         }
@@ -221,32 +234,4 @@ fn buffer_bgr888_from_image(
     }
 
     buffer
-}
-
-// Copied example from fast_image_resize
-fn resize_image_with_cropping(
-    mut src_view: fr::DynamicImageView,
-    dst_width: NonZeroU32,
-    dst_height: NonZeroU32
-) -> fr::Image {
-    // Set cropping parameters
-    src_view.set_crop_box_to_fit_dst_size(dst_width, dst_height, None);
-
-    // Create container for data of destination image
-    let mut dst_image = fr::Image::new(
-        dst_width,
-        dst_height,
-        src_view.pixel_type(),
-    );
-    // Get mutable view of destination image data
-    let mut dst_view = dst_image.view_mut();
-
-    // Create Resizer instance and resize source image
-    // into buffer of destination image
-    let mut resizer = fr::Resizer::new(
-        fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3)
-    );
-    resizer.resize(&src_view, &mut dst_view).unwrap();
-
-    dst_image
 }
