@@ -11,7 +11,7 @@ use smithay_client_toolkit::{
     shell::{
         WaylandSurface,
         wlr_layer::{
-            KeyboardInteractivity, Layer, LayerShell,
+            Anchor, KeyboardInteractivity, Layer, LayerShell,
             LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
         },
     },
@@ -246,6 +246,9 @@ logical size: {}x{}",
             Some(&output)
         );
 
+        layer.set_anchor(
+            Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT
+        );
         layer.set_exclusive_zone(-1); // Don't let the status bar push it around
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
 
