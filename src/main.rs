@@ -14,7 +14,7 @@ use std::{
 };
 
 use clap::Parser;
-use log::error;
+use log::{debug, error};
 use mio::{
     Events, Interest, Poll, Token, Waker,
     unix::SourceFd,
@@ -99,6 +99,8 @@ fn main()
     };
 
     event_queue.roundtrip(&mut state).unwrap();
+
+    debug!("Initial wayland roundtrip done. Starting main event loop.");
 
     // ********************************
     //     Main event loop
