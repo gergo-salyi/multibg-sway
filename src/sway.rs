@@ -17,12 +17,12 @@ pub struct SwayConnectionTask {
     tx: Sender<WorkspaceVisible>,
     waker: Arc<Waker>,
 }
-impl SwayConnectionTask 
+impl SwayConnectionTask
 {
     pub fn new(tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) -> Self {
-        SwayConnectionTask { 
+        SwayConnectionTask {
             sway_conn: Connection::new()
-                .expect("Failed to connect to sway socket"), 
+                .expect("Failed to connect to sway socket"),
             tx,
             waker
         }
@@ -38,11 +38,11 @@ impl SwayConnectionTask
                 output: workspace.output,
                 workspace_name: workspace.name,
             }).unwrap();
-            
+
             self.waker.wake().unwrap();
         }
     }
-    
+
     pub fn request_visible_workspaces(&mut self) {
         for workspace in self.sway_conn.get_workspaces().unwrap()
             .into_iter().filter(|w| w.visible)
@@ -50,7 +50,7 @@ impl SwayConnectionTask
             self.tx.send(WorkspaceVisible {
                 output: workspace.output,
                 workspace_name: workspace.name,
-            }).unwrap();    
+            }).unwrap();
         }
         self.waker.wake().unwrap();
     }

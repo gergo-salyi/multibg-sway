@@ -16,24 +16,24 @@ Eg.
 
 In more detail:
 
-- wallpaper_dir: A directory, this will be the argument 
+- wallpaper_dir: A directory, this will be the argument
     for the multibg-sway command
 
-- output: A directory with the same name as a sway output 
+- output: A directory with the same name as a sway output
     eg. eDP-1, HDMI-A-1
 
-    - If one has multiple outputs with the same resolution this 
+    - If one has multiple outputs with the same resolution this
       can be a symlink to the directory of the other output
 
     - To get the name of current outputs from sway one may run:
 
         $ swaymsg -t get_outputs
 
-- workspace_name: The name of the sway workspace, 
+- workspace_name: The name of the sway workspace,
     by sway defaults: 1, 2, 3, ..., 10
 
-    - Can be a manually defined workspace name (eg. in sway config), 
-      but renaming workspaces while multibg-sway is running 
+    - Can be a manually defined workspace name (eg. in sway config),
+      but renaming workspaces while multibg-sway is running
       is not supported currently
 
     - Can define a fallback wallpaper with the special name: _default
@@ -46,7 +46,7 @@ which automatically avoids resizing operations and decreases startup time.
 
 Example:
 
-For one having a laptop with a built-in display eDP-1 
+For one having a laptop with a built-in display eDP-1
 and an external monitor HDMI-A-1, wallpapers can be arranged such as:
 
     ~/my_wallpapers

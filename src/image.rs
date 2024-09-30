@@ -15,7 +15,7 @@ use smithay_client_toolkit::reexports::client::protocol::wl_shm;
 use crate::wayland::WorkspaceBackground;
 
 pub fn workspace_bgs_from_output_image_dir(
-    dir_path: impl AsRef<Path>, 
+    dir_path: impl AsRef<Path>,
     slot_pool: &mut SlotPool,
     format: wl_shm::Format,
     brightness: i32,
@@ -81,7 +81,7 @@ pub fn workspace_bgs_from_output_image_dir(
         let mut image = image.into_rgb8();
         let image_width = image.width();
         let image_height = image.height();
-        
+
         if image_width == 0 {
             error!(
                 "Image '{}' has zero width, skipping", workspace_name
@@ -98,7 +98,7 @@ pub fn workspace_bgs_from_output_image_dir(
         if image_width != surface_width || image_height != surface_height
         {
             debug!("Resizing image '{}' from {}x{} to {}x{}",
-                workspace_name, 
+                workspace_name,
                 image_width, image_height,
                 surface_width, surface_height
             );
@@ -126,16 +126,16 @@ pub fn workspace_bgs_from_output_image_dir(
             ).unwrap();
 
             image = ImageBuffer::from_raw(
-                surface_width, 
-                surface_height, 
+                surface_width,
+                surface_height,
                 dst_image.into_vec()
             ).unwrap();
         }
 
         let buffer = match format {
-            wl_shm::Format::Xrgb8888 => 
+            wl_shm::Format::Xrgb8888 =>
                 buffer_xrgb8888_from_image(image, slot_pool),
-            wl_shm::Format::Bgr888 => 
+            wl_shm::Format::Bgr888 =>
                 buffer_bgr888_from_image(image, slot_pool),
             _ => unreachable!()
         };
@@ -154,14 +154,14 @@ pub fn workspace_bgs_from_output_image_dir(
 fn buffer_xrgb8888_from_image(
     image: ImageBuffer<Rgb<u8>, Vec<u8>>,
     slot_pool: &mut SlotPool,
-) 
-    -> Buffer 
+)
+    -> Buffer
 {
     let (buffer, canvas) = slot_pool
         .create_buffer(
-            image.width() as i32, 
-            image.height() as i32, 
-            image.width() as i32 * 4, 
+            image.width() as i32,
+            image.height() as i32,
+            image.width() as i32 * 4,
             wl_shm::Format::Xrgb8888
         )
         .unwrap();
@@ -183,8 +183,8 @@ fn buffer_xrgb8888_from_image(
 fn buffer_bgr888_from_image(
     image: ImageBuffer<Rgb<u8>, Vec<u8>>,
     slot_pool: &mut SlotPool,
-) 
-    -> Buffer 
+)
+    -> Buffer
 {
     // Align buffer stride to both 4 and pixel format block size
     // Not being aligned to 4 caused

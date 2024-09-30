@@ -6,17 +6,17 @@ mod wayland;
 use std::{
     io,
     os::fd::AsRawFd,
-    path::Path, 
+    path::Path,
     sync::{
-        Arc, 
-        mpsc::{channel, Receiver}, 
+        Arc,
+        mpsc::{channel, Receiver},
     }
 };
 
 use clap::Parser;
 use log::error;
 use mio::{
-    Events, Interest, Poll, Token, Waker, 
+    Events, Interest, Poll, Token, Waker,
     unix::SourceFd,
 };
 use smithay_client_toolkit::{
@@ -48,7 +48,7 @@ fn main()
             "warn,multibg_sway=trace"
         )
     ).init();
-    
+
     #[cfg(not(debug_assertions))]
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("warn")
@@ -99,7 +99,7 @@ fn main()
     };
 
     event_queue.roundtrip(&mut state).unwrap();
-    
+
     // ********************************
     //     Main event loop
     // ********************************
@@ -136,8 +136,8 @@ fn main()
         for event in events.iter() {
             match event.token() {
                 WAYLAND => handle_wayland_event(
-                    &mut state, 
-                    &mut read_guard_option, 
+                    &mut state,
+                    &mut read_guard_option,
                     &mut event_queue
                 ),
                 SWAY => handle_sway_event(&mut state, &rx),

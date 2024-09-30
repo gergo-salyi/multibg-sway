@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use log::{debug, error, warn};
 use smithay_client_toolkit::{
-    delegate_compositor, delegate_layer, delegate_output, delegate_registry, 
+    delegate_compositor, delegate_layer, delegate_output, delegate_registry,
     delegate_shm,
     compositor::{CompositorHandler, CompositorState},
     output::{OutputHandler, OutputState},
@@ -11,25 +11,25 @@ use smithay_client_toolkit::{
     shell::{
         WaylandSurface,
         wlr_layer::{
-            KeyboardInteractivity, Layer, LayerShell, 
+            KeyboardInteractivity, Layer, LayerShell,
             LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
         },
     },
     shm::{
         Shm, ShmHandler,
-        slot::{Buffer, SlotPool}, 
+        slot::{Buffer, SlotPool},
     },
 };
 use smithay_client_toolkit::reexports::client::{
     Connection, Dispatch, Proxy, QueueHandle,
     protocol::{
-        wl_output::{self, WlOutput}, 
-        wl_shm, 
+        wl_output::{self, WlOutput},
+        wl_shm,
         wl_surface::WlSurface
     },
 };
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::{
-    wp_viewport::WpViewport, 
+    wp_viewport::WpViewport,
     wp_viewporter::WpViewporter
 };
 
@@ -128,9 +128,9 @@ impl CompositorHandler for State
 impl LayerShellHandler for State
 {
     fn closed(
-        &mut self, 
-        _conn: &Connection, 
-        _qh: &QueueHandle<Self>, 
+        &mut self,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
         _layer: &LayerSurface
     ) {
     }
@@ -143,7 +143,7 @@ impl LayerShellHandler for State
         configure: LayerSurfaceConfigure,
         _serial: u32,
     ) {
-        // The new layer is ready: request all the visible workspace from sway, 
+        // The new layer is ready: request all the visible workspace from sway,
         // it will get picked up by the main event loop and be drawn from there
         let bg_layer = self.background_layers.iter_mut()
             .find(|bg_layer| &bg_layer.layer == layer).unwrap();
@@ -155,7 +155,7 @@ impl LayerShellHandler for State
 
             debug!(
                 "Configured layer on output: {}, new surface size {}x{}",
-                bg_layer.output_name, 
+                bg_layer.output_name,
                 configure.new_size.0, configure.new_size.1
             );
         }
@@ -163,7 +163,7 @@ impl LayerShellHandler for State
             debug!(
 "Ignoring configure for already configured layer on output: {}, \
 new surface size {}x{}",
-                bg_layer.output_name, 
+                bg_layer.output_name,
                 configure.new_size.0, configure.new_size.1
             );
         }
@@ -198,7 +198,7 @@ impl OutputHandler for State {
             .map(|mode| mode.dimensions)
         else {
             error!(
-                "New output '{}' has no current mode set, skipping", 
+                "New output '{}' has no current mode set, skipping",
                 output_name
             );
             return;
@@ -217,7 +217,7 @@ impl OutputHandler for State {
         let Some((logical_width, logical_height)) = info.logical_size
         else {
             error!(
-                "New output '{}' has no logical_size, skipping", 
+                "New output '{}' has no logical_size, skipping",
                 output_name
             );
             return;
@@ -234,15 +234,15 @@ impl OutputHandler for State {
         debug!(
 "New output, name: {}, resolution: {}x{}, integer scale factor: {}, \
 logical size: {}x{}",
-            output_name, width, height, integer_scale_factor, 
+            output_name, width, height, integer_scale_factor,
             logical_width, logical_height
         );
 
         let layer = self.layer_shell.create_layer_surface(
-            qh, 
-            self.compositor_state.create_surface(qh), 
-            Layer::Background, 
-            layer_surface_name(&output_name), 
+            qh,
+            self.compositor_state.create_surface(qh),
+            Layer::Background,
+            layer_surface_name(&output_name),
             Some(&output)
         );
 
@@ -250,9 +250,9 @@ logical size: {}x{}",
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
 
         let surface = layer.wl_surface();
-        
+
         let mut viewport = None;
-        
+
         if width == logical_width || height == logical_height {
             debug!("Output '{}' needs no scaling", output_name);
         }
@@ -268,7 +268,7 @@ logical size: {}x{}",
             new_viewport.set_destination(logical_width, logical_height);
             viewport = Some(new_viewport);
         }
-        
+
         layer.commit();
 
         let pixel_format = self.pixel_format();
@@ -306,24 +306,24 @@ logical size: {}x{}",
                 return;
             }
         };
-        
+
         debug!(
         "Shm slot pool size for output '{}' after loading wallpapers: {} KiB",
             output_name,
             shm_slot_pool.len() / 1024
         );
 
-        self.background_layers.push(BackgroundLayer { 
-            output_name, 
-            width, 
-            height, 
-            layer, 
+        self.background_layers.push(BackgroundLayer {
+            output_name,
+            width,
+            height,
+            layer,
             configured: false,
             workspace_backgrounds,
             shm_slot_pool,
             viewport,
         });
-        
+
         debug!(
             "New sum of shm slot pool sizes for all outputs: {} KiB",
             self.background_layers.iter()
@@ -343,7 +343,7 @@ logical size: {}x{}",
             error!("Updated output has no output info, skipping");
             return;
         };
-        
+
         let Some(output_name) = info.name
         else {
             error!("Updated output has no name, skipping");
@@ -355,7 +355,7 @@ logical size: {}x{}",
             .map(|mode| mode.dimensions)
         else {
             error!(
-                "Updated output '{}' has no current mode set, skipping", 
+                "Updated output '{}' has no current mode set, skipping",
                 output_name
             );
             return;
@@ -368,13 +368,13 @@ logical size: {}x{}",
             );
             return;
         }
-        
+
         let integer_scale_factor = info.scale_factor;
-        
+
         let Some((logical_width, logical_height)) = info.logical_size
         else {
             error!(
-                "Updated output '{}' has no logical_size, skipping", 
+                "Updated output '{}' has no logical_size, skipping",
                 output_name
             );
             return;
@@ -399,7 +399,7 @@ logical size: {}x{}",
             .find(|bg_layers| bg_layers.output_name == output_name)
         else {
             error!(
-                "Updated output '{}' has no background layer, skipping", 
+                "Updated output '{}' has no background layer, skipping",
                 output_name
             );
             return;
@@ -411,9 +411,9 @@ logical size: {}x{}",
 Restart multibg-sway or expect low wallpaper quality due to scaling"
             );
         }
-        
+
         let surface = bg_layer.layer.wl_surface();
-    
+
         if width == logical_width || height == logical_height {
             debug!("Output '{}' needs no scaling", output_name);
             surface.set_buffer_scale(1);
@@ -434,7 +434,7 @@ Restart multibg-sway or expect low wallpaper quality due to scaling"
             debug!("Output '{}' needs fractional scaling", output_name);
             surface.set_buffer_scale(1);
             bg_layer.viewport
-                .get_or_insert_with(|| 
+                .get_or_insert_with(||
                     self.viewporter.get_viewport(surface, qh, ())
                 )
                 .set_destination(logical_width, logical_height);
@@ -460,7 +460,7 @@ Restart multibg-sway or expect low wallpaper quality due to scaling"
             error!("Destroyed output has no name, skipping");
             return;
         };
-        
+
         debug!(
             "Output destroyed: {}",
             output_name,
@@ -487,7 +487,7 @@ Restart multibg-sway or expect low wallpaper quality due to scaling"
             for workspace_bg in removed_bg_layer.workspace_backgrounds.iter() {
                 if workspace_bg.buffer.slot().has_active_buffers() {
                     warn!(
-"On destroyed output '{}' workspace background '{}' will be dropped while its shm slot still has active buffers", 
+"On destroyed output '{}' workspace background '{}' will be dropped while its shm slot still has active buffers",
                         output_name,
                         workspace_bg.workspace_name,
                     );
@@ -505,7 +505,7 @@ Restart multibg-sway or expect low wallpaper quality due to scaling"
                     .collect::<Vec<_>>().join(", ")
             );
         }
-        
+
         debug!(
             "New sum of shm slot pool sizes for all outputs: {} KiB",
             self.background_layers.iter()
@@ -570,7 +570,7 @@ pub struct BackgroundLayer {
     pub shm_slot_pool: SlotPool,
     pub viewport: Option<WpViewport>,
 }
-impl BackgroundLayer 
+impl BackgroundLayer
 {
     pub fn draw_workspace_bg(&mut self, workspace_name: &str)
     {
@@ -607,7 +607,7 @@ impl BackgroundLayer
             );
             return;
         }
-        
+
         // Attach and commit to new workspace background
         if let Err(e) = workspace_bg.buffer.attach_to(self.layer.wl_surface()) {
             error!(
@@ -618,10 +618,10 @@ impl BackgroundLayer
             );
             return;
         }
-        
+
         // Damage the entire surface
         self.layer.wl_surface().damage_buffer(0, 0, self.width, self.height);
-        
+
         self.layer.commit();
 
         debug!(
