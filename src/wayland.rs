@@ -23,7 +23,7 @@ use smithay_client_toolkit::{
 use smithay_client_toolkit::reexports::client::{
     Connection, Dispatch, Proxy, QueueHandle,
     protocol::{
-        wl_output::{self, WlOutput},
+        wl_output::{self, Transform, WlOutput},
         wl_shm,
         wl_surface::WlSurface
     },
@@ -212,6 +212,26 @@ impl OutputHandler for State {
             return;
         }
 
+        let (width, height) = {
+            match info.transform {
+                Transform::Normal
+                | Transform::_180
+                | Transform::Flipped
+                | Transform::Flipped180 => (width, height),
+                Transform::_90
+                | Transform::_270
+                | Transform::Flipped90
+                | Transform::Flipped270 => (height, width),
+                _ => {
+                    warn!(
+                        "New output '{}' has unsupported transform",
+                        output_name
+                    );
+                    (width, height)
+                }
+            }
+        };
+
         let integer_scale_factor = info.scale_factor;
 
         let Some((logical_width, logical_height)) = info.logical_size
@@ -233,9 +253,9 @@ impl OutputHandler for State {
 
         debug!(
 "New output, name: {}, resolution: {}x{}, integer scale factor: {}, \
-logical size: {}x{}",
+logical size: {}x{}, transform: {:?}",
             output_name, width, height, integer_scale_factor,
-            logical_width, logical_height
+            logical_width, logical_height, info.transform
         );
 
         let layer = self.layer_shell.create_layer_surface(
@@ -372,6 +392,26 @@ logical size: {}x{}",
             return;
         }
 
+        let (width, height) = {
+            match info.transform {
+                Transform::Normal
+                | Transform::_180
+                | Transform::Flipped
+                | Transform::Flipped180 => (width, height),
+                Transform::_90
+                | Transform::_270
+                | Transform::Flipped90
+                | Transform::Flipped270 => (height, width),
+                _ => {
+                    warn!(
+                        "Updated output '{}' has unsupported transform",
+                        output_name
+                    );
+                    (width, height)
+                }
+            }
+        };
+
         let integer_scale_factor = info.scale_factor;
 
         let Some((logical_width, logical_height)) = info.logical_size
@@ -393,9 +433,9 @@ logical size: {}x{}",
 
         debug!(
 "Updated output, name: {}, resolution: {}x{}, integer scale factor: {}, \
-logical size: {}x{}",
+logical size: {}x{}, transform: {:?}",
             output_name, width, height, integer_scale_factor,
-            logical_width, logical_height
+            logical_width, logical_height, info.transform
         );
 
         let Some(bg_layer) = self.background_layers.iter_mut()
@@ -410,8 +450,8 @@ logical size: {}x{}",
 
         if bg_layer.width != width || bg_layer.height != height {
             warn!(
-"Handling of output mode changes are not implemented. \
-Restart multibg-sway or expect low wallpaper quality due to scaling"
+"Handling of output mode or transform changes are not yet implemented. \
+Restart multibg-sway or expect broken wallpapers or low quality due to scaling"
             );
         }
 
