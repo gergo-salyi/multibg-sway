@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9 - 2024-10-09
+- Fix broken wallpapers on 90 degree rotated monitors [#9](https://github.com/gergo-salyi/multibg-sway/issues/9)
+- Update dependencies
+
 ## 0.1.8 - 2024-09-30
 - Try to fix crash with wayland protocol error regarding wlr_layer_surface [#8](https://github.com/gergo-salyi/multibg-sway/issues/8)
 - Update dependencies
