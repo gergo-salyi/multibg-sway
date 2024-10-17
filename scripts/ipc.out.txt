@@ -1,0 +1,15 @@
+Attaching 4 probes...
+00:52:29.501701 recvfrom exit
+00:52:29.501723 recvfrom exit
+00:52:29.501725 recvfrom exit
+00:52:29.501740 recvfrom exit
+00:52:29.501908 sendto enter fd=3
+00:52:29.512243 recvmsg exit
+00:52:29.512257 recvmsg exit
+00:52:37.534095 recvfrom exit
+00:52:37.534127 recvfrom exit
+00:52:37.534129 recvfrom exit
+00:52:37.534140 recvfrom exit
+00:52:37.534276 sendto enter fd=3
+00:52:37.546900 recvmsg exit
+00:52:37.546913 recvmsg exit

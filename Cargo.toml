@@ -11,7 +11,7 @@ repository = "https://github.com/gergo-salyi/multibg-sway"
 license = "MIT OR Apache-2.0"
 keywords = ["wallpaper", "background", "desktop", "wayland", "sway"]
 categories = ["command-line-utilities", "multimedia::images"]
-exclude = ["PKGBUILD"]
+exclude = ["/PKGBUILD", "/scripts/"]
 
 [dependencies]
 clap = { version = "4.5.3", features = ["derive"] }

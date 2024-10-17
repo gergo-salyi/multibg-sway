@@ -1,0 +1,99 @@
+#!/usr/bin/env bpftrace
+/*
+ * Trace the timings of wayland and sway-ipc unix socket
+ * send and receive syscalls on multibg-sway
+ *
+ * On Linux with bpftrace installed one can run this script as root
+ * to get microsecond resolution timings printed to stdout
+ * when on our wayland and sway-ipc sockets
+ *  - receive syscalls return
+ *  - send and write syscalls enter
+ *
+ * Use the obtained timestamps
+ * to calculate our latency switching the wallpaper
+ */
+
+tracepoint:syscalls:sys_enter_sendto
+{
+    if (comm != "multibg-sway") {
+        return;
+    }
+
+    printf(
+        "%s sendto enter fd=%d\n",
+        strftime("%H:%M:%S.%f", nsecs),
+        args->fd
+    );
+}
+
+tracepoint:syscalls:sys_enter_sendmsg
+{
+    if (comm != "multibg-sway") {
+        return;
+    }
+
+    printf(
+        "%s sendmsg enter fd=%d\n",
+        strftime("%H:%M:%S.%f", nsecs),
+        args->fd
+    );
+}
+
+tracepoint:syscalls:sys_enter_write
+{
+    if (comm != "multibg-sway") {
+        return;
+    }
+
+    if (args->fd == 1 && args->fd == 2) {
+        return;
+    }
+
+    printf(
+        "%s write enter fd=%d count=%d %r\n",
+        strftime("%H:%M:%S.%f", nsecs),
+        args->fd,
+        args->count,
+        buf(args->buf, args->count)
+    );
+}
+
+tracepoint:syscalls:sys_exit_recvfrom
+{
+    if (comm != "multibg-sway") {
+        return;
+    }
+
+    printf(
+        "%s recvfrom exit\n",
+        strftime("%H:%M:%S.%f", nsecs)
+    );
+}
+
+tracepoint:syscalls:sys_exit_recvmsg
+{
+    if (comm != "multibg-sway") {
+        return;
+    }
+
+    printf(
+        "%s recvmsg exit\n",
+        strftime("%H:%M:%S.%f", nsecs)
+    );
+}
+
+/* Option to trace other syscalls too */
+/*
+tracepoint:raw_syscalls:sys_enter
+{
+    if (comm != "multibg-sway") {
+        return;
+    }
+
+    printf(
+        "%s syscall %d enter\n",
+        strftime("%H:%M:%S.%f", nsecs),
+        args->id
+    );
+}
+*/
