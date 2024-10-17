@@ -3,8 +3,9 @@ use std::{
     thread::spawn,
 };
 
+use log::debug;
 use mio::Waker;
-use swayipc::{Connection, Event, EventType, WorkspaceChange};
+use swayipc::{BindingEvent, Connection, Event, EventType, WorkspaceChange};
 
 #[derive(Debug)]
 pub struct WorkspaceVisible {
@@ -60,20 +61,78 @@ impl SwayConnectionTask
     }
 
     fn subscribe_event_loop(self) {
-        let event_stream = self.sway_conn.subscribe([EventType::Workspace])
+        let event_stream = self.sway_conn
+            .subscribe([EventType::Binding, EventType::Workspace])
             .unwrap();
+
+        let mut set_workspace_conn = Connection::new().unwrap();
+        let output = std::env::var("MULTIBGSWAY_OUTPUT").unwrap()
+            .trim().to_string();
+        let delay = std::env::var("MULTIBGSWAY_DELAY").unwrap()
+            .trim()
+            .parse::<u64>().unwrap();
+
         for event_result in event_stream {
             let event = event_result.unwrap();
-            let Event::Workspace(workspace_event) = event else {continue};
-            if let WorkspaceChange::Focus = workspace_event.change {
-                let current_workspace = workspace_event.current.unwrap();
+            match event {
+                /*
+                Event::Workspace(workspace_event) => {
+                    if let WorkspaceChange::Focus = workspace_event.change {
+                        let current_workspace = workspace_event.current
+                            .unwrap();
 
-                self.tx.send(WorkspaceVisible {
-                    output: current_workspace.output.unwrap(),
-                    workspace_name: current_workspace.name.unwrap(),
-                }).unwrap();
+                        self.tx.send(WorkspaceVisible {
+                            output: current_workspace.output.unwrap(),
+                            workspace_name: current_workspace.name.unwrap(),
+                        }).unwrap();
 
-                self.waker.wake().unwrap();
+                        self.waker.wake().unwrap();
+                    }
+                }
+                */
+                Event::Binding(BindingEvent { binding, .. }) => {
+                    if binding.command == "nop"
+                        && binding.event_state_mask.iter()
+                            .any(|m| m.as_str() == "Mod4")
+                    {
+                        let Some(symbol) = binding.symbol
+                        else { continue };
+
+                        let Ok(workspace_number) = symbol.parse::<u8>()
+                        else { continue };
+
+                        if workspace_number > 10 { continue }
+
+                        debug!(
+                            "Switching to workspace {}",
+                            symbol
+                        );
+
+                        self.tx.send(WorkspaceVisible {
+                            output: output.clone(),
+                            workspace_name: symbol,
+                        }).unwrap();
+
+                        self.waker.wake().unwrap();
+
+                        if delay > 0 {
+                            std::thread::sleep(
+                                std::time::Duration::from_micros(delay)
+                            );
+                        }
+
+                        set_workspace_conn
+                            .run_command(
+                                format!(
+                                    "workspace number {}",
+                                    workspace_number
+                                )
+                            )
+                            .unwrap()
+                            .into_iter().for_each(|r| r.unwrap());
+                    }
+                }
+                _ => {}
             }
         }
     }

@@ -80,6 +80,9 @@ pub struct Cli {
     /// wl_buffer pixel format (default: auto)
     #[arg(long)]
     pub pixelformat: Option<PixelFormat>,
+    /// experimental
+    #[arg(long)]
+    pub setworkspaces: bool,
     /// directory with: wallpaper_dir/output/workspace_name.{jpg|png|...}
     pub wallpaper_dir: String,
 }
