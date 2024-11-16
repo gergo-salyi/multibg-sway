@@ -4,7 +4,7 @@ use log::{debug, error, warn};
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry,
     delegate_shm,
-    compositor::{CompositorHandler, CompositorState},
+    compositor::{CompositorHandler, CompositorState, Region},
     output::{OutputHandler, OutputState},
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
@@ -273,6 +273,18 @@ logical size: {}x{}, transform: {:?}",
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
 
         let surface = layer.wl_surface();
+
+        // Disable receiving pointer, touch, and tablet events
+        // by setting an empty input region.
+        // This prevents disappearing or hidden cursor when a normal window
+        // closes below the pointer leaving it above our surface
+        match Region::new(&self.compositor_state) {
+            Ok(region) => surface.set_input_region(Some(region.wl_region())),
+            Err(error) => error!(
+                "Failed to create empty input region, on new output '{}': {}",
+                output_name, error
+            )
+        };
 
         let mut viewport = None;
 
