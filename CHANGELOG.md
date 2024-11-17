@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.10 - 2024-11-17
+- Fix sometimes disappearing mouse cursor above wallpapers
+- Add small clarifications to README
+- Update Arch Linux PKGBUILD to follow their Rust package guidelines
+- Add minimum supported Rust version so Cargo can enforce it at build time
+- Update dependencies
+
 ## 0.1.9 - 2024-10-09
 - Fix broken wallpapers on 90 degree rotated monitors [#9](https://github.com/gergo-salyi/multibg-sway/issues/9)
 - Update dependencies
