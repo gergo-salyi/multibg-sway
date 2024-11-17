@@ -26,7 +26,7 @@ In more detail:
 
 - **workspace_name**: The name of the sway workspace, by sway defaults: 1, 2, 3, ..., 10
   - Can be a manually defined workspace name (eg. in sway config), but renaming workspaces while multibg-sway is running is not supported currently
-  - Can define a fallback wallpaper with the special name: _default
+  - Can define a **fallback wallpaper** with the special name: **_default**
   - Can be a symlink to use a wallpaper image for multiple workspaces
 
 Wallpaper images are now automatically resized at startup to _fill_ the output. Still it is better to have wallpaper images the same resolution as the output, which automatically avoids resizing operations and decreases startup time.
@@ -63,14 +63,34 @@ Because multibg-sway doesn't have its own GPU context and manages graphics memor
 
 ## Installation
 
-- With Rust:
+Requires `Rust`, get it from your package manager or from the official website: [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install)
+
+- Latest release (from [crates.io](https://crates.io/crates/multibg-sway)) with Cargo install provided by Rust:
 
       $ cargo install --locked multibg-sway
-      
+
+  Run `~/.cargo/bin/multibg-sway`
+
+- Directly from the current git source:
+
+      $ git clone https://github.com/gergo-salyi/multibg-sway.git
+      $ cd multibg-sway
+      $ cargo build --release --locked
+
+  Run `./target/release/multibg-sway`
+
 - For Arch Linux from AUR: [https://aur.archlinux.org/packages/multibg-sway](https://aur.archlinux.org/packages/multibg-sway)
   - eg. with paru
 
         $ paru -S multibg-sway
+
+## Bug reporting
+
+Reports on any problems are appreciated, look for an existing or open a new issue at [https://github.com/gergo-salyi/multibg-sway/issues](https://github.com/gergo-salyi/multibg-sway/issues)
+
+Please include a verbose log from you terminal by running with `RUST_BACKTRACE=1` and `RUST_LOG=trace` environment variables set, such as
+
+    $ RUST_BACKTRACE=1 RUST_LOG=trace multibg-sway ~/my_wallpapers
 
 ## Alternatives
 
