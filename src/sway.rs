@@ -1,58 +1,64 @@
 use std::{
-    sync::{Arc, mpsc::Sender},
+    sync::{mpsc::Sender, Arc},
     thread::spawn,
 };
 
 use mio::Waker;
-use swayipc::{Connection, Event, EventType, WorkspaceChange};
+use niri_ipc::{socket::Socket, Event, Request, Response};
 
 #[derive(Debug)]
 pub struct WorkspaceVisible {
     pub output: String,
-    pub workspace_name: String
+    pub workspace_name: String,
 }
 
 pub struct SwayConnectionTask {
-    sway_conn: Connection,
     tx: Sender<WorkspaceVisible>,
     waker: Arc<Waker>,
 }
-impl SwayConnectionTask
-{
+impl SwayConnectionTask {
     pub fn new(tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) -> Self {
-        SwayConnectionTask {
-            sway_conn: Connection::new()
-                .expect("Failed to connect to sway socket"),
-            tx,
-            waker
-        }
+        SwayConnectionTask { tx, waker }
     }
 
     pub fn request_visible_workspace(&mut self, output: &str) {
-        if let Some(workspace) = self.sway_conn.get_workspaces().unwrap()
-            .into_iter()
-            .filter(|w| w.visible)
-            .find(|w| w.output == output)
+        if let Ok((Ok(Response::Workspaces(workspaces)), _)) = Socket::connect()
+            .expect("failed to connect to niri socket")
+            .send(Request::Workspaces)
         {
-            self.tx.send(WorkspaceVisible {
-                output: workspace.output,
-                workspace_name: workspace.name,
-            }).unwrap();
+            if let Some(workspace) = workspaces
+                .into_iter()
+                .filter(|w| w.is_focused)
+                .find(|w| w.output.as_ref().map_or("", |v| v) == output)
+            {
+                self.tx
+                    .send(WorkspaceVisible {
+                        output: workspace.output.unwrap_or_else(|| String::new()),
+                        workspace_name: workspace.name.unwrap_or_else(|| String::new()),
+                    })
+                    .unwrap();
 
-            self.waker.wake().unwrap();
+                self.waker.wake().unwrap();
+            }
         }
     }
 
     pub fn request_visible_workspaces(&mut self) {
-        for workspace in self.sway_conn.get_workspaces().unwrap()
-            .into_iter().filter(|w| w.visible)
+        if let Ok((Ok(Response::Workspaces(workspaces)), _)) = Socket::connect()
+            .expect("failed to connect to niri socket")
+            .send(Request::Workspaces)
         {
-            self.tx.send(WorkspaceVisible {
-                output: workspace.output,
-                workspace_name: workspace.name,
-            }).unwrap();
+            for workspace in workspaces.into_iter().filter(|w| w.is_active) {
+                self.tx
+                    .send(WorkspaceVisible {
+                        output: workspace.output.unwrap_or_else(|| String::new()),
+                        workspace_name: workspace.name.unwrap_or_else(|| String::new()),
+                    })
+                    .unwrap();
+
+                self.waker.wake().unwrap();
+            }
         }
-        self.waker.wake().unwrap();
     }
 
     pub fn spawn_subscribe_event_loop(self) {
@@ -60,21 +66,43 @@ impl SwayConnectionTask
     }
 
     fn subscribe_event_loop(self) {
-        let event_stream = self.sway_conn.subscribe([EventType::Workspace])
-            .unwrap();
-        for event_result in event_stream {
-            let event = event_result.unwrap();
-            let Event::Workspace(workspace_event) = event else {continue};
-            if let WorkspaceChange::Focus = workspace_event.change {
-                let current_workspace = workspace_event.current.unwrap();
+        if let Ok((Ok(Response::Handled), mut callback)) = Socket::connect()
+            .expect("failed to connect to niri socket")
+            .send(Request::EventStream)
+        {
+            while let Ok(event) = callback() {
+                if let Event::WorkspaceActivated { id, focused: _ } = event {
+                    let (name, output) = self.query_workspace(id);
 
-                self.tx.send(WorkspaceVisible {
-                    output: current_workspace.output.unwrap(),
-                    workspace_name: current_workspace.name.unwrap(),
-                }).unwrap();
+                    self.tx
+                        .send(WorkspaceVisible {
+                            output: output,
+                            workspace_name: name,
+                        })
+                        .unwrap();
 
-                self.waker.wake().unwrap();
+                    self.waker.wake().unwrap();
+                }
             }
+        } else {
+            panic!("failed to subscribe to event stream");
+        }
+    }
+
+    fn query_workspace(&self, id: u64) -> (String, String) {
+        if let Ok((Ok(Response::Workspaces(workspaces)), _)) = Socket::connect()
+            .expect("failed to connect to niri socket")
+            .send(Request::Workspaces)
+        {
+            for workspace in workspaces.into_iter().filter(|w| w.id == id) {
+                return (
+                    workspace.name.unwrap_or_else(|| String::new()),
+                    workspace.output.unwrap_or_else(|| String::new()),
+                );
+            }
+            panic!("unknown workspace id");
+        } else {
+            panic!("niri workspace query failed");
         }
     }
 }
