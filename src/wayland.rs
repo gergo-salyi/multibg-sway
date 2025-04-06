@@ -35,7 +35,7 @@ use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::{
 
 use crate::{
     image::workspace_bgs_from_output_image_dir,
-    sway::SwayConnectionTask,
+    compositors::ConnectionTask,
 };
 
 pub struct State {
@@ -49,7 +49,7 @@ pub struct State {
     pub force_xrgb8888: bool,
     pub pixel_format: Option<wl_shm::Format>,
     pub background_layers: Vec<BackgroundLayer>,
-    pub sway_connection_task: SwayConnectionTask,
+    pub compositor_connection_task: ConnectionTask,
     pub brightness: i32,
     pub contrast: f32,
 }
@@ -150,7 +150,7 @@ impl LayerShellHandler for State
 
         if !bg_layer.configured {
             bg_layer.configured = true;
-            self.sway_connection_task
+            self.compositor_connection_task
                 .request_visible_workspace(&bg_layer.output_name);
 
             debug!(
@@ -529,7 +529,7 @@ Restart multibg-sway or expect broken wallpapers or low quality due to scaling"
 
             // Workspaces on the destroyed output may have been moved anywhere
             // so reset the wallpaper on all the visible workspaces
-            self.sway_connection_task.request_visible_workspaces();
+            self.compositor_connection_task.request_visible_workspaces();
 
             debug!(
                 "Dropping {} wallpapers on destroyed output for workspaces: {}",

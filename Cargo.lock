@@ -700,6 +700,7 @@ dependencies = [
  "mio",
  "niri-ipc",
  "smithay-client-toolkit",
+ "swayipc",
 ]
 
 [[package]]
@@ -1141,6 +1142,28 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "swayipc"
+version = "3.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b8c50cb2e98e88b52066a35ef791fffd8f6fa631c3a4983de18ba41f718c736"
+dependencies = [
+ "serde",
+ "serde_json",
+ "swayipc-types",
+]
+
+[[package]]
+name = "swayipc-types"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "551233c60323e87cfb8194c21cc44577ab848d00bb7fa2d324a2c7f52609eaff"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "syn"
