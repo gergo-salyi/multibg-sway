@@ -21,7 +21,7 @@ image = "0.25.0"
 log = "0.4.21"
 mio = { version = "1.0.2", features = ["os-ext", "os-poll"] }
 swayipc = "3.0.2"
-niri-ipc = "25.2.0"
+niri-ipc = "=25.2.0"
 
 [dependencies.smithay-client-toolkit]
 version = "0.19.2"
