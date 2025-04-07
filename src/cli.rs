@@ -73,9 +73,9 @@ One may wish to redirect stderr if multibg-sway is being run as a daemon.
 
 
 multibg-sway supports multiple compositors, currently only sway and niri.
-It defaults to sway. Pass --compositor niri to enable it to talk to niri.
-
-    ")]
+It tries to autodetect the compositor based on environment variables,
+defaulting to sway if that fails.
+Pass --compositor niri to ensure it can to talk to niri.")]
 pub struct Cli {
     /// adjust contrast, eg. -c=-25 (default: 0)
     #[arg(short, long)]
