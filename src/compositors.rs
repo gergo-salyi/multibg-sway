@@ -12,7 +12,7 @@ use std::{
     sync::{mpsc::Sender, Arc}, thread::spawn
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum Compositor {
     Sway,
     Niri,
@@ -56,15 +56,15 @@ impl Compositor {
     }
 }
 
-impl From<&str> for Compositor {
-    fn from(s: &str) -> Self {
-        match s {
-            "sway" => Compositor::Sway,
-            "niri" => Compositor::Niri,
-            _ => panic!("Unknown compositor"),
-        }
-    }
-}
+// impl From<&str> for Compositor {
+//     fn from(s: &str) -> Self {
+//         match s {
+//             "sway" => Compositor::Sway,
+//             "niri" => Compositor::Niri,
+//             _ => panic!("Unknown compositor"),
+//         }
+//     }
+// }
 
 pub trait CompositorInterface: Send + Sync {
     fn request_visible_workspace(

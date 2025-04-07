@@ -86,11 +86,11 @@ pub struct Cli {
     /// wl_buffer pixel format (default: auto)
     #[arg(long)]
     pub pixelformat: Option<PixelFormat>,
-    /// directory with: wallpaper_dir/output/workspace_name.{jpg|png|...}
-    pub wallpaper_dir: String,
-
+    /// Wayland compositor to connect (autodetect by default)
     #[arg(long)]
     pub compositor: Option<crate::compositors::Compositor>,
+    /// directory with: wallpaper_dir/output/workspace_name.{jpg|png|...}
+    pub wallpaper_dir: String,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, ValueEnum)]
