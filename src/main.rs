@@ -36,7 +36,7 @@ use smithay_client_toolkit::reexports::protocols
 
 use crate::{
     cli::{Cli, PixelFormat},
-    compositors::{ConnectionTask, WorkspaceVisible},
+    compositors::{Compositor, ConnectionTask, WorkspaceVisible},
     wayland::State,
 };
 
@@ -79,8 +79,9 @@ fn main()
     let waker = Arc::new(Waker::new(poll.registry(), SWAY).unwrap());
     let (tx, rx) = channel();
 
-    let compositor = cli.compositor.unwrap_or(compositors::Compositor::Sway);
-
+    let compositor = cli.compositor
+        .or_else(Compositor::from_env)
+        .unwrap_or(Compositor::Sway);
 
     let mut state = State {
         compositor_state,

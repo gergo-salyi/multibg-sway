@@ -1,6 +1,12 @@
 mod niri;
 mod sway;
 
+use std::{
+    env,
+    os::unix::ffi::OsStrExt,
+};
+
+use log::{debug, warn};
 use mio::Waker;
 use std::{
     sync::{mpsc::Sender, Arc}, thread::spawn
@@ -10,6 +16,44 @@ use std::{
 pub enum Compositor {
     Sway,
     Niri,
+}
+
+impl Compositor {
+    pub fn from_env() -> Option<Compositor> {
+        Compositor::from_xdg_desktop_var("XDG_SESSION_DESKTOP")
+            .or_else(|| Compositor::from_xdg_desktop_var("XDG_CURRENT_DESKTOP"))
+            .or_else(Compositor::from_ipc_socket_var)
+    }
+
+    fn from_xdg_desktop_var(xdg_desktop_var: &str) -> Option<Compositor> {
+        if let Some(xdg_desktop) = env::var_os(xdg_desktop_var) {
+            if xdg_desktop.as_bytes().starts_with(b"sway") {
+                debug!("Selecting compositor Sway based on {xdg_desktop_var}");
+                Some(Compositor::Sway)
+            } else if xdg_desktop.as_bytes().starts_with(b"niri") {
+                debug!("Selecting compositor Niri based on {xdg_desktop_var}");
+                Some(Compositor::Niri)
+            } else {
+                warn!("Unrecognized compositor from {xdg_desktop_var} \
+                    environment variable: {xdg_desktop:?}");
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn from_ipc_socket_var() -> Option<Compositor> {
+        if env::var_os("SWAYSOCK").is_some() {
+            debug!("Selecting compositor Sway based on SWAYSOCK");
+            Some(Compositor::Sway)
+        } else if env::var_os("NIRI_SOCKET").is_some() {
+            debug!("Selecting compositor Niri based on NIRI_SOCKET");
+            Some(Compositor::Niri)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<&str> for Compositor {
