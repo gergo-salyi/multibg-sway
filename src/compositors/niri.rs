@@ -1,6 +1,4 @@
-use std::{
-    sync::{mpsc::Sender, Arc},
-};
+use std::sync::{mpsc::Sender, Arc};
 
 use super::{CompositorInterface, WorkspaceVisible};
 use mio::Waker;
@@ -18,10 +16,10 @@ impl NiriConnectionTask {
             .expect("failed to connect to niri socket")
             .send(Request::Workspaces)
         {
-            for workspace in workspaces.into_iter().filter(|w| w.id == id) {
+            if let Some(workspace) = workspaces.into_iter().find(|w| w.id == id) {
                 return (
-                    workspace.name.unwrap_or_else(|| String::new()),
-                    workspace.output.unwrap_or_else(|| String::new()),
+                    workspace.name.unwrap_or_else(String::new),
+                    workspace.output.unwrap_or_else(String::new),
                 );
             }
             panic!("unknown workspace id");
@@ -47,8 +45,8 @@ impl CompositorInterface for NiriConnectionTask {
                 .find(|w| w.output.as_ref().map_or("", |v| v) == output)
             {
                 tx.send(WorkspaceVisible {
-                    output: workspace.output.unwrap_or_else(|| String::new()),
-                    workspace_name: workspace.name.unwrap_or_else(|| String::new()),
+                    output: workspace.output.unwrap_or_else(String::new),
+                    workspace_name: workspace.name.unwrap_or_else(String::new),
                 })
                 .unwrap();
 
@@ -64,8 +62,8 @@ impl CompositorInterface for NiriConnectionTask {
         {
             for workspace in workspaces.into_iter().filter(|w| w.is_active) {
                 tx.send(WorkspaceVisible {
-                    output: workspace.output.unwrap_or_else(|| String::new()),
-                    workspace_name: workspace.name.unwrap_or_else(|| String::new()),
+                    output: workspace.output.unwrap_or_else(String::new),
+                    workspace_name: workspace.name.unwrap_or_else(String::new),
                 })
                 .unwrap();
 
