@@ -16,7 +16,7 @@ impl NiriConnectionTask {
         {
             if let Some(workspace) = workspaces.into_iter().find(|w| w.id == id) {
                 return (
-                    workspace.name.unwrap_or_else(String::new),
+                    workspace.name.unwrap_or_else(|| format!("{}", workspace.idx)),
                     workspace.output.unwrap_or_else(String::new),
                 );
             }
@@ -37,7 +37,8 @@ impl CompositorInterface for NiriConnectionTask {
                 .filter(|w| w.is_active)
                 .map(|workspace| WorkspaceVisible {
                     output: workspace.output.unwrap_or_default(),
-                    workspace_name: workspace.name.unwrap_or_default(),
+                    workspace_name: workspace.name
+                        .unwrap_or_else(|| format!("{}", workspace.idx)),
                 })
                 .collect()
         } else {
