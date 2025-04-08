@@ -1,7 +1,5 @@
-use std::sync::{mpsc::Sender, Arc};
 
-use super::{CompositorInterface, WorkspaceVisible};
-use mio::Waker;
+use super::{CompositorInterface, WorkspaceVisible, EventSender};
 use niri_ipc::{socket::Socket, Event, Request, Response};
 
 pub struct NiriConnectionTask {}
@@ -29,7 +27,7 @@ impl NiriConnectionTask {
     }
 }
 impl CompositorInterface for NiriConnectionTask {
-    fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible>{
+    fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible> {
         if let Ok((Ok(Response::Workspaces(workspaces)), _)) = Socket::connect()
             .expect("failed to connect to niri socket")
             .send(Request::Workspaces)
@@ -37,20 +35,17 @@ impl CompositorInterface for NiriConnectionTask {
             return workspaces
                 .into_iter()
                 .filter(|w| w.is_active)
-                .map(|workspace| {
-                    WorkspaceVisible {
-                        output: workspace.output.unwrap_or_else(String::new),
-                        workspace_name: workspace.name.unwrap_or_else(String::new),
-                    }
+                .map(|workspace| WorkspaceVisible {
+                    output: workspace.output.unwrap_or_else(String::new),
+                    workspace_name: workspace.name.unwrap_or_else(String::new),
                 })
-            .collect()
-        } else
-        {
+                .collect();
+        } else {
             panic!("unable to retrieve niri workspaces")
         }
     }
 
-    fn subscribe_event_loop(self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) {
+    fn subscribe_event_loop(self, event_sender: EventSender) {
         if let Ok((Ok(Response::Handled), mut callback)) = Socket::connect()
             .expect("failed to connect to niri socket")
             .send(Request::EventStream)
@@ -58,14 +53,10 @@ impl CompositorInterface for NiriConnectionTask {
             while let Ok(event) = callback() {
                 if let Event::WorkspaceActivated { id, focused: _ } = event {
                     let (workspace_name, output) = self.query_workspace(id);
-
-                    tx.send(WorkspaceVisible {
+                    event_sender.send(WorkspaceVisible {
                         output,
                         workspace_name,
-                    })
-                    .unwrap();
-
-                    waker.wake().unwrap();
+                    });
                 }
             }
         } else {

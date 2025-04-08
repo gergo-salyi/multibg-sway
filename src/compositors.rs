@@ -66,10 +66,27 @@ impl Compositor {
 //     }
 // }
 
-pub trait CompositorInterface: Send + Sync {
-    fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible>;
-    fn subscribe_event_loop(self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>);
+/// abstract 'sending back workspace change events'
+pub (self) struct EventSender {
+    tx: Sender<WorkspaceVisible>,
+    waker: Arc<Waker>,
 }
+
+impl EventSender {
+    fn new(tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) -> Self {
+        EventSender { tx, waker }
+    }
+
+    fn send(&self, workspace: WorkspaceVisible) {
+        self.tx.send(workspace).unwrap();
+        self.waker.wake().unwrap();
+    }
+}
+pub (self) trait CompositorInterface: Send + Sync {
+    fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible>;
+    fn subscribe_event_loop(self, event_sender: EventSender);
+}
+
 
 pub struct ConnectionTask {
     tx: Sender<WorkspaceVisible>,
@@ -96,14 +113,15 @@ impl ConnectionTask {
         tx: Sender<WorkspaceVisible>,
         waker: Arc<Waker>,
     ) {
+        let event_sender = EventSender::new(tx, waker);
         spawn(move || match composer {
             Compositor::Sway => {
                 let composer_interface = sway::SwayConnectionTask::new();
-                composer_interface.subscribe_event_loop(tx, waker);
+                composer_interface.subscribe_event_loop(event_sender);
             }
             Compositor::Niri => {
                 let composer_interface = niri::NiriConnectionTask::new();
-                composer_interface.subscribe_event_loop(tx, waker);
+                composer_interface.subscribe_event_loop(event_sender);
             }
         });
     }
@@ -127,16 +145,13 @@ impl ConnectionTask {
     }
 
     pub fn request_visible_workspaces(&mut self) {
-        for workspace in self
-            .interface
-            .request_visible_workspaces()
-            .into_iter()
-        {
-            self.tx.send(WorkspaceVisible {
-                output: workspace.output,
-                workspace_name: workspace.workspace_name,
-            })
-            .unwrap();
+        for workspace in self.interface.request_visible_workspaces().into_iter() {
+            self.tx
+                .send(WorkspaceVisible {
+                    output: workspace.output,
+                    workspace_name: workspace.workspace_name,
+                })
+                .unwrap();
 
             self.waker.wake().unwrap();
         }
