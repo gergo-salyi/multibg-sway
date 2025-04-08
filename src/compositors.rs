@@ -67,7 +67,7 @@ impl Compositor {
 // }
 
 /// abstract 'sending back workspace change events'
-pub (self) struct EventSender {
+struct EventSender {
     tx: Sender<WorkspaceVisible>,
     waker: Arc<Waker>,
 }
@@ -82,7 +82,8 @@ impl EventSender {
         self.waker.wake().unwrap();
     }
 }
-pub (self) trait CompositorInterface: Send + Sync {
+
+trait CompositorInterface: Send + Sync {
     fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible>;
     fn subscribe_event_loop(self, event_sender: EventSender);
 }
