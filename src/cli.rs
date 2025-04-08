@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 #[command(author, version, long_about = None, about = "\
 Set a different wallpaper for the background of each Sway workspace
 
-    $ multibg-sway <WALLPAPER_DIR>
+    $ multibg-sway <WALLPAPER_DIR> [--compositor <COMPOSITOR>]
 
 Wallpapers should be arranged in the following directory structure:
 
@@ -69,7 +69,13 @@ Nevertheless the contrast and brightness might be adjusted here:
     $ multibg-sway --contrast=-25 --brightness=-60 ~/my_wallpapers
 
 In case of errors multibg-sway logs to stderr and tries to continue.
-One may wish to redirect stderr if multibg-sway is being run as a daemon.")]
+One may wish to redirect stderr if multibg-sway is being run as a daemon.
+
+
+multibg-sway supports multiple compositors, currently only sway and niri.
+It tries to autodetect the compositor based on environment variables,
+defaulting to sway if that fails.
+Pass --compositor niri to ensure it can to talk to niri.")]
 pub struct Cli {
     /// adjust contrast, eg. -c=-25 (default: 0)
     #[arg(short, long)]
@@ -80,6 +86,9 @@ pub struct Cli {
     /// wl_buffer pixel format (default: auto)
     #[arg(long)]
     pub pixelformat: Option<PixelFormat>,
+    /// Wayland compositor to connect (autodetect by default)
+    #[arg(long)]
+    pub compositor: Option<crate::compositors::Compositor>,
     /// directory with: wallpaper_dir/output/workspace_name.{jpg|png|...}
     pub wallpaper_dir: String,
 }

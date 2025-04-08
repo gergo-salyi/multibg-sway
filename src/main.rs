@@ -1,6 +1,6 @@
 mod cli;
 mod image;
-mod sway;
+mod compositors;
 mod wayland;
 
 use std::{
@@ -36,7 +36,7 @@ use smithay_client_toolkit::reexports::protocols
 
 use crate::{
     cli::{Cli, PixelFormat},
-    sway::{SwayConnectionTask, WorkspaceVisible},
+    compositors::{Compositor, ConnectionTask, WorkspaceVisible},
     wayland::State,
 };
 
@@ -79,6 +79,10 @@ fn main()
     let waker = Arc::new(Waker::new(poll.registry(), SWAY).unwrap());
     let (tx, rx) = channel();
 
+    let compositor = cli.compositor
+        .or_else(Compositor::from_env)
+        .unwrap_or(Compositor::Sway);
+
     let mut state = State {
         compositor_state,
         registry_state,
@@ -91,7 +95,8 @@ fn main()
             .is_some_and(|p| p == PixelFormat::Baseline),
         pixel_format: None,
         background_layers: Vec::new(),
-        sway_connection_task: SwayConnectionTask::new(
+        compositor_connection_task: ConnectionTask::new(
+            compositor,
             tx.clone(), Arc::clone(&waker)
         ),
         brightness: cli.brightness.unwrap_or(0),
@@ -119,7 +124,7 @@ fn main()
     drop(read_guard);
 
     const SWAY: Token = Token(1);
-    SwayConnectionTask::new(tx, waker).spawn_subscribe_event_loop();
+    ConnectionTask::spawn_subscribe_event_loop(compositor, tx, waker);
 
     loop {
         event_queue.flush().unwrap();
