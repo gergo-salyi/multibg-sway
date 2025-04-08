@@ -32,14 +32,14 @@ impl CompositorInterface for NiriConnectionTask {
             .expect("failed to connect to niri socket")
             .send(Request::Workspaces)
         {
-            return workspaces
+            workspaces
                 .into_iter()
                 .filter(|w| w.is_active)
                 .map(|workspace| WorkspaceVisible {
-                    output: workspace.output.unwrap_or_else(String::new),
-                    workspace_name: workspace.name.unwrap_or_else(String::new),
+                    output: workspace.output.unwrap_or_default(),
+                    workspace_name: workspace.name.unwrap_or_default(),
                 })
-                .collect();
+                .collect()
         } else {
             panic!("unable to retrieve niri workspaces")
         }
