@@ -1,7 +1,4 @@
-use std::sync::{mpsc::Sender, Arc};
-
-use super::{CompositorInterface, WorkspaceVisible};
-use mio::Waker;
+use super::{CompositorInterface, WorkspaceVisible, EventSender};
 use swayipc::{Connection, Event, EventType, WorkspaceChange};
 
 pub struct SwayConnectionTask {
@@ -30,7 +27,7 @@ impl CompositorInterface for SwayConnectionTask {
             .collect()
     }
 
-    fn subscribe_event_loop(self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) {
+    fn subscribe_event_loop(self, event_sender: EventSender) {
         let event_stream = self.sway_conn.subscribe([EventType::Workspace]).unwrap();
         for event_result in event_stream {
             let event = event_result.unwrap();
@@ -39,14 +36,10 @@ impl CompositorInterface for SwayConnectionTask {
             };
             if let WorkspaceChange::Focus = workspace_event.change {
                 let current_workspace = workspace_event.current.unwrap();
-
-                tx.send(WorkspaceVisible {
+                event_sender.send(WorkspaceVisible {
                     output: current_workspace.output.unwrap(),
                     workspace_name: current_workspace.name.unwrap(),
-                })
-                .unwrap();
-
-                waker.wake().unwrap();
+                });
             }
         }
     }
