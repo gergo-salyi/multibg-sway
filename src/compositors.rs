@@ -1,15 +1,13 @@
 mod niri;
 mod sway;
 
-use std::{
-    env,
-    os::unix::ffi::OsStrExt,
-};
+use std::{env, os::unix::ffi::OsStrExt};
 
 use log::{debug, warn};
 use mio::Waker;
 use std::{
-    sync::{mpsc::Sender, Arc}, thread::spawn
+    sync::{mpsc::Sender, Arc},
+    thread::spawn,
 };
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
@@ -34,8 +32,10 @@ impl Compositor {
                 debug!("Selecting compositor Niri based on {xdg_desktop_var}");
                 Some(Compositor::Niri)
             } else {
-                warn!("Unrecognized compositor from {xdg_desktop_var} \
-                    environment variable: {xdg_desktop:?}");
+                warn!(
+                    "Unrecognized compositor from {xdg_desktop_var} \
+                    environment variable: {xdg_desktop:?}"
+                );
                 None
             }
         } else {
@@ -67,13 +67,7 @@ impl Compositor {
 // }
 
 pub trait CompositorInterface: Send + Sync {
-    fn request_visible_workspace(
-        &mut self,
-        output: &str,
-        tx: Sender<WorkspaceVisible>,
-        waker: Arc<Waker>,
-    );
-    fn request_visible_workspaces(&mut self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>);
+    fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible>;
     fn subscribe_event_loop(self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>);
 }
 
@@ -115,13 +109,37 @@ impl ConnectionTask {
     }
 
     pub fn request_visible_workspace(&mut self, output: &str) {
-        self.interface
-            .request_visible_workspace(output, self.tx.clone(), self.waker.clone());
+        if let Some(workspace) = self
+            .interface
+            .request_visible_workspaces()
+            .into_iter()
+            .find(|w| w.output == output)
+        {
+            self.tx
+                .send(WorkspaceVisible {
+                    output: workspace.output,
+                    workspace_name: workspace.workspace_name,
+                })
+                .unwrap();
+
+            self.waker.wake().unwrap();
+        }
     }
 
     pub fn request_visible_workspaces(&mut self) {
-        self.interface
-            .request_visible_workspaces(self.tx.clone(), self.waker.clone());
+        for workspace in self
+            .interface
+            .request_visible_workspaces()
+            .into_iter()
+        {
+            self.tx.send(WorkspaceVisible {
+                output: workspace.output,
+                workspace_name: workspace.workspace_name,
+            })
+            .unwrap();
+
+            self.waker.wake().unwrap();
+        }
     }
 }
 
