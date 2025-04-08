@@ -1,6 +1,4 @@
-use std::{
-    sync::{mpsc::Sender, Arc},
-};
+use std::sync::{mpsc::Sender, Arc};
 
 use super::{CompositorInterface, WorkspaceVisible};
 use mio::Waker;
@@ -19,47 +17,17 @@ impl SwayConnectionTask {
 }
 
 impl CompositorInterface for SwayConnectionTask {
-    fn request_visible_workspace(
-        &mut self,
-        output: &str,
-        tx: Sender<WorkspaceVisible>,
-        waker: Arc<Waker>,
-    ) {
-        if let Some(workspace) = self
-            .sway_conn
+    fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible> {
+        self.sway_conn
             .get_workspaces()
             .unwrap()
             .into_iter()
             .filter(|w| w.visible)
-            .find(|w| w.output == output)
-        {
-            tx
-                .send(WorkspaceVisible {
-                    output: workspace.output,
-                    workspace_name: workspace.name,
-                })
-                .unwrap();
-
-            waker.wake().unwrap();
-        }
-    }
-
-    fn request_visible_workspaces(&mut self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) {
-        for workspace in self
-            .sway_conn
-            .get_workspaces()
-            .unwrap()
-            .into_iter()
-            .filter(|w| w.visible)
-        {
-            tx
-                .send(WorkspaceVisible {
-                    output: workspace.output,
-                    workspace_name: workspace.name,
-                })
-                .unwrap();
-        }
-        waker.wake().unwrap();
+            .map(|workspace| WorkspaceVisible {
+                output: workspace.output,
+                workspace_name: workspace.name,
+            })
+            .collect()
     }
 
     fn subscribe_event_loop(self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) {
@@ -72,12 +40,11 @@ impl CompositorInterface for SwayConnectionTask {
             if let WorkspaceChange::Focus = workspace_event.change {
                 let current_workspace = workspace_event.current.unwrap();
 
-                tx
-                    .send(WorkspaceVisible {
-                        output: current_workspace.output.unwrap(),
-                        workspace_name: current_workspace.name.unwrap(),
-                    })
-                    .unwrap();
+                tx.send(WorkspaceVisible {
+                    output: current_workspace.output.unwrap(),
+                    workspace_name: current_workspace.name.unwrap(),
+                })
+                .unwrap();
 
                 waker.wake().unwrap();
             }

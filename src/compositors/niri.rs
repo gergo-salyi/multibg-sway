@@ -29,46 +29,24 @@ impl NiriConnectionTask {
     }
 }
 impl CompositorInterface for NiriConnectionTask {
-    fn request_visible_workspace(
-        &mut self,
-        output: &str,
-        tx: Sender<WorkspaceVisible>,
-        waker: Arc<Waker>,
-    ) {
+    fn request_visible_workspaces(&mut self) -> Vec<WorkspaceVisible>{
         if let Ok((Ok(Response::Workspaces(workspaces)), _)) = Socket::connect()
             .expect("failed to connect to niri socket")
             .send(Request::Workspaces)
         {
-            if let Some(workspace) = workspaces
+            return workspaces
                 .into_iter()
-                .filter(|w| w.is_focused)
-                .find(|w| w.output.as_ref().map_or("", |v| v) == output)
-            {
-                tx.send(WorkspaceVisible {
-                    output: workspace.output.unwrap_or_else(String::new),
-                    workspace_name: workspace.name.unwrap_or_else(String::new),
+                .filter(|w| w.is_active)
+                .map(|workspace| {
+                    WorkspaceVisible {
+                        output: workspace.output.unwrap_or_else(String::new),
+                        workspace_name: workspace.name.unwrap_or_else(String::new),
+                    }
                 })
-                .unwrap();
-
-                waker.wake().unwrap();
-            }
-        }
-    }
-
-    fn request_visible_workspaces(&mut self, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) {
-        if let Ok((Ok(Response::Workspaces(workspaces)), _)) = Socket::connect()
-            .expect("failed to connect to niri socket")
-            .send(Request::Workspaces)
+            .collect()
+        } else
         {
-            for workspace in workspaces.into_iter().filter(|w| w.is_active) {
-                tx.send(WorkspaceVisible {
-                    output: workspace.output.unwrap_or_else(String::new),
-                    workspace_name: workspace.name.unwrap_or_else(String::new),
-                })
-                .unwrap();
-
-                waker.wake().unwrap();
-            }
+            panic!("unable to retrieve niri workspaces")
         }
     }
 
