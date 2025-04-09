@@ -1,6 +1,9 @@
 use std::io;
-use super::{CompositorInterface, WorkspaceVisible, EventSender};
+
+use log::debug;
 use niri_ipc::{socket::Socket, Event, Request, Response, Workspace};
+
+use super::{CompositorInterface, WorkspaceVisible, EventSender};
 
 pub struct NiriConnectionTask {}
 
@@ -26,6 +29,7 @@ impl CompositorInterface for NiriConnectionTask {
         let mut workspaces_state = request_workspaces();
         let mut callback = request_event_stream();
         while let Ok(event) = callback() {
+            debug!("Niri event: {event:?}");
             match event {
                 Event::WorkspaceActivated { id, focused: _ } => {
                     let visible_workspace =
