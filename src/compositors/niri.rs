@@ -1,6 +1,9 @@
 use std::io;
-use super::{CompositorInterface, WorkspaceVisible, EventSender};
+
+use log::debug;
 use niri_ipc::{socket::Socket, Event, Request, Response, Workspace};
+
+use super::{CompositorInterface, WorkspaceVisible, EventSender};
 
 pub struct NiriConnectionTask {}
 
@@ -28,11 +31,13 @@ impl CompositorInterface for NiriConnectionTask {
         while let Ok(event) = callback() {
             match event {
                 Event::WorkspaceActivated { id, focused: _ } => {
+                    debug!("Niri event: workspace id {id} activated");
                     let visible_workspace =
                         find_workspace(&workspaces_state, id);
                     event_sender.send(visible_workspace);
                 },
                 Event::WorkspacesChanged { workspaces } => {
+                    debug!("Niri event: workspaces changed: {workspaces:?}");
                     workspaces_state = workspaces
                 },
                 _ => {},
@@ -44,7 +49,7 @@ impl CompositorInterface for NiriConnectionTask {
 fn find_workspace(workspaces: &[Workspace], id: u64) -> WorkspaceVisible {
     let workspace = workspaces.iter()
         .find(|workspace| workspace.id == id)
-        .expect("Unknown niri workspace id {id}");
+        .unwrap_or_else(|| panic!("Unknown niri workspace id {id}"));
     let workspace_name = workspace.name.clone()
         .unwrap_or_else(|| format!("{}", workspace.idx));
     let output = workspace.output.clone().unwrap_or_default();
