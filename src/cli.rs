@@ -72,10 +72,11 @@ In case of errors multibg-sway logs to stderr and tries to continue.
 One may wish to redirect stderr if multibg-sway is being run as a daemon.
 
 
-multibg-sway supports multiple compositors, currently only sway and niri.
+multibg-sway supports multiple compositors,
+currently only sway, hyprland and niri.
 It tries to autodetect the compositor based on environment variables,
 defaulting to sway if that fails.
-Pass --compositor niri to ensure it can to talk to niri.")]
+Pass --compositor {hyprland|niri} to ensure it can to talk to them")]
 pub struct Cli {
     /// adjust contrast, eg. -c=-25 (default: 0)
     #[arg(short, long)]

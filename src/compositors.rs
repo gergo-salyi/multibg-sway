@@ -1,3 +1,4 @@
+mod hyprland;
 mod niri;
 mod sway;
 
@@ -12,8 +13,9 @@ use std::{
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum Compositor {
-    Sway,
+    Hyprland,
     Niri,
+    Sway,
 }
 
 impl Compositor {
@@ -28,6 +30,9 @@ impl Compositor {
             if xdg_desktop.as_bytes().starts_with(b"sway") {
                 debug!("Selecting compositor Sway based on {xdg_desktop_var}");
                 Some(Compositor::Sway)
+            } else if xdg_desktop.as_bytes().starts_with(b"Hyprland") {
+                debug!("Selecting compositor Hyprland based on {xdg_desktop_var}");
+                Some(Compositor::Hyprland)
             } else if xdg_desktop.as_bytes().starts_with(b"niri") {
                 debug!("Selecting compositor Niri based on {xdg_desktop_var}");
                 Some(Compositor::Niri)
@@ -47,6 +52,10 @@ impl Compositor {
         if env::var_os("SWAYSOCK").is_some() {
             debug!("Selecting compositor Sway based on SWAYSOCK");
             Some(Compositor::Sway)
+        } else if env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some() {
+            debug!("Selecting compositor Hyprland based on \
+                HYPRLAND_INSTANCE_SIGNATURE");
+            Some(Compositor::Hyprland)
         } else if env::var_os("NIRI_SOCKET").is_some() {
             debug!("Selecting compositor Niri based on NIRI_SOCKET");
             Some(Compositor::Niri)
@@ -99,6 +108,9 @@ impl ConnectionTask {
     pub fn new(composer: Compositor, tx: Sender<WorkspaceVisible>, waker: Arc<Waker>) -> Self {
         let interface: Box<dyn CompositorInterface> = match composer {
             Compositor::Sway => Box::new(sway::SwayConnectionTask::new()),
+            Compositor::Hyprland => Box::new(
+                hyprland::HyprlandConnectionTask::new()
+            ),
             Compositor::Niri => Box::new(niri::NiriConnectionTask::new()),
         };
 
@@ -118,6 +130,10 @@ impl ConnectionTask {
         spawn(move || match composer {
             Compositor::Sway => {
                 let composer_interface = sway::SwayConnectionTask::new();
+                composer_interface.subscribe_event_loop(event_sender);
+            }
+            Compositor::Hyprland => {
+                let composer_interface = hyprland::HyprlandConnectionTask::new();
                 composer_interface.subscribe_event_loop(event_sender);
             }
             Compositor::Niri => {

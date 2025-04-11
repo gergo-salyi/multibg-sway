@@ -699,6 +699,8 @@ dependencies = [
  "log",
  "mio",
  "niri-ipc",
+ "serde",
+ "serde_json",
  "smithay-client-toolkit",
  "swayipc",
 ]
