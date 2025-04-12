@@ -14,7 +14,7 @@ use std::{
 };
 
 use clap::Parser;
-use log::{debug, error};
+use log::{debug, error, info};
 use mio::{
     Events, Interest, Poll, Token, Waker,
     unix::SourceFd,
@@ -40,19 +40,21 @@ use crate::{
     wayland::State,
 };
 
-fn main()
-{
-    #[cfg(debug_assertions)]
+fn main() -> Result<(), ()> {
+    run().map_err(|e| { error!("{e:#}"); })
+}
+
+fn run() -> anyhow::Result<()> {
     env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or(
-            "warn,multibg_sway=trace"
+            #[cfg(debug_assertions)]
+            "info,multibg_sway=trace",
+            #[cfg(not(debug_assertions))]
+            "info",
         )
     ).init();
 
-    #[cfg(not(debug_assertions))]
-    env_logger::Builder::from_env(
-        env_logger::Env::default().default_filter_or("warn")
-    ).init();
+    info!(concat!(env!("CARGO_PKG_NAME"), " ", env!("CARGO_PKG_VERSION")));
 
     let cli = Cli::parse();
     let wallpaper_dir = Path::new(&cli.wallpaper_dir).canonicalize().unwrap();

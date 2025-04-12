@@ -692,6 +692,7 @@ dependencies = [
 name = "multibg-sway"
 version = "0.1.10"
 dependencies = [
+ "anyhow",
  "clap",
  "env_logger",
  "fast_image_resize",
