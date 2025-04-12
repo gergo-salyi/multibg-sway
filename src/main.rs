@@ -1,6 +1,7 @@
+mod compositors;
 mod cli;
 mod image;
-mod compositors;
+mod signal;
 mod wayland;
 
 use std::{
@@ -37,6 +38,7 @@ use smithay_client_toolkit::reexports::protocols
 use crate::{
     cli::{Cli, PixelFormat},
     compositors::{Compositor, ConnectionTask, WorkspaceVisible},
+    signal::SignalPipe,
     wayland::State,
 };
 
@@ -128,6 +130,22 @@ fn run() -> anyhow::Result<()> {
     const SWAY: Token = Token(1);
     ConnectionTask::spawn_subscribe_event_loop(compositor, tx, waker);
 
+    const SIGNAL: Token = Token(2);
+    let signal_pipe = match SignalPipe::new() {
+        Ok(signal_pipe) => {
+            poll.registry().register(
+                &mut SourceFd(&signal_pipe.as_raw_fd()),
+                SIGNAL,
+                Interest::READABLE
+            ).unwrap();
+            Some(signal_pipe)
+        },
+        Err(e) => {
+            error!("Failed to set up signal handling: {e}");
+            None
+        }
+    };
+
     loop {
         event_queue.flush().unwrap();
         event_queue.dispatch_pending(&mut state).unwrap();
@@ -150,6 +168,20 @@ fn run() -> anyhow::Result<()> {
                     &mut event_queue
                 ),
                 SWAY => handle_sway_event(&mut state, &rx),
+                SIGNAL => match signal_pipe.as_ref().unwrap().read() {
+                    Err(e) => error!("Failed to read the signal pipe: {e}"),
+                    Ok(signal_flags) => {
+                        if let Some(signal) = signal_flags.any_termination() {
+                            info!("Received signal {signal}, exiting");
+                            return Ok(());
+                        } else if signal_flags.has_usr1()
+                            || signal_flags.has_usr2()
+                        {
+                            error!("Received signal USR1 or USR2 is \
+                                reserved for future functionality");
+                        }
+                    },
+                },
                 _ => unreachable!()
             }
         }
