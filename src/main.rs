@@ -1,12 +1,13 @@
 mod compositors;
 mod cli;
 mod image;
+mod poll;
 mod signal;
 mod wayland;
 
 use std::{
     io,
-    os::fd::AsRawFd,
+    os::fd::AsFd,
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -15,10 +16,10 @@ use std::{
 };
 
 use clap::Parser;
-use log::{debug, error, info};
-use mio::{
-    Events, Interest, Poll, Token, Waker,
-    unix::SourceFd,
+use log::{debug, error, info, warn};
+use rustix::{
+    event::{poll, PollFd, PollFlags},
+    io::retry_on_intr,
 };
 use smithay_client_toolkit::{
     compositor::CompositorState,
@@ -39,6 +40,7 @@ use smithay_client_toolkit::reexports::protocols
 use crate::{
     cli::{Cli, PixelFormat},
     compositors::{Compositor, ConnectionTask, WorkspaceVisible},
+    poll::{Poll, Waker},
     signal::SignalPipe,
     wayland::BackgroundLayer,
 };
@@ -120,9 +122,8 @@ fn run() -> anyhow::Result<()> {
         .bind_one(&qh, 1..=1, ()).expect("wp_viewporter not available");
 
     // Sync tools for sway ipc tasks
-    let mut poll = Poll::new().unwrap();
-    let waker = Arc::new(Waker::new(poll.registry(), SWAY).unwrap());
     let (tx, rx) = channel();
+    let waker = Arc::new(Waker::new().unwrap());
 
     let compositor = cli.compositor
         .or_else(Compositor::from_env)
@@ -156,60 +157,31 @@ fn run() -> anyhow::Result<()> {
     //     Main event loop
     // ********************************
 
-    let mut events = Events::with_capacity(16);
-
-    const WAYLAND: Token = Token(0);
-    let read_guard = event_queue.prepare_read().unwrap();
-    let wayland_socket_fd = read_guard.connection_fd().as_raw_fd();
-    poll.registry().register(
-        &mut SourceFd(&wayland_socket_fd),
-        WAYLAND,
-        Interest::READABLE
-    ).unwrap();
-    drop(read_guard);
-
-    const SWAY: Token = Token(1);
-    ConnectionTask::spawn_subscribe_event_loop(compositor, tx, waker);
-
-    const SIGNAL: Token = Token(2);
-    let signal_pipe = match SignalPipe::new() {
-        Ok(signal_pipe) => {
-            poll.registry().register(
-                &mut SourceFd(&signal_pipe.as_raw_fd()),
-                SIGNAL,
-                Interest::READABLE
-            ).unwrap();
-            Some(signal_pipe)
-        },
-        Err(e) => {
-            error!("Failed to set up signal handling: {e}");
-            None
-        }
-    };
+    let mut poll = Poll::with_capacity(3);
+    let token_wayland = poll.add_readable(&conn);
+    ConnectionTask::spawn_subscribe_event_loop(compositor, tx, waker.clone());
+    let token_compositor = poll.add_readable(&waker);
+    let signal_pipe = SignalPipe::new()
+        .map_err(|e| error!("Failed to set up signal handling: {e}"))
+        .ok();
+    let token_signal = signal_pipe.as_ref().map(|pipe| poll.add_readable(pipe));
 
     loop {
-        event_queue.flush().unwrap();
-        event_queue.dispatch_pending(&mut state).unwrap();
-        let mut read_guard_option = Some(event_queue.prepare_read().unwrap());
-
-        if let Err(poll_error) = poll.poll(&mut events, None) {
-            if poll_error.kind() == io::ErrorKind::Interrupted {
-                continue;
-            }
-            else {
-                panic!("Main event loop poll failed: {:?}", poll_error);
-            }
+        flush_blocking(&event_queue);
+        let read_guard = ensure_prepare_read(&mut state, &mut event_queue);
+        poll.poll().expect("Main event loop poll failed");
+        if poll.ready(token_wayland) {
+            handle_wayland_event(&mut state, &mut event_queue, read_guard);
+        } else {
+            drop(read_guard);
         }
-
-        for event in events.iter() {
-            match event.token() {
-                WAYLAND => handle_wayland_event(
-                    &mut state,
-                    &mut read_guard_option,
-                    &mut event_queue
-                ),
-                SWAY => handle_sway_event(&mut state, &rx),
-                SIGNAL => match signal_pipe.as_ref().unwrap().read() {
+        if poll.ready(token_compositor) {
+            waker.read();
+            handle_sway_event(&mut state, &rx);
+        }
+        if let Some(token_signal) = token_signal {
+            if poll.ready(token_signal) {
+                match signal_pipe.as_ref().unwrap().read() {
                     Err(e) => error!("Failed to read the signal pipe: {e}"),
                     Ok(signal_flags) => {
                         if let Some(signal) = signal_flags.any_termination() {
@@ -222,33 +194,50 @@ fn run() -> anyhow::Result<()> {
                                 reserved for future functionality");
                         }
                     },
-                },
-                _ => unreachable!()
+                }
             }
         }
     }
 }
 
+fn flush_blocking(event_queue: &EventQueue<State>) {
+    loop {
+        let result = event_queue.flush();
+        if result.is_ok() { return }
+        if let Err(WaylandError::Io(io_error)) = &result {
+            if io_error.kind() == io::ErrorKind::WouldBlock {
+                warn!("Wayland flush needs to block");
+                let mut poll_fds = [PollFd::from_borrowed_fd(
+                    event_queue.as_fd(),
+                    PollFlags::OUT,
+                )];
+                retry_on_intr(|| poll(&mut poll_fds, -1)).unwrap();
+                continue
+            }
+        }
+        result.expect("Failed to flush Wayland event queue");
+    }
+}
+
+fn ensure_prepare_read(
+    state: &mut State,
+    event_queue: &mut EventQueue<State>
+) -> ReadEventsGuard {
+    loop {
+        if let Some(guard) = event_queue.prepare_read() { return guard }
+        event_queue.dispatch_pending(state)
+            .expect("Failed to dispatch pending Wayland events");
+    }
+}
+
 fn handle_wayland_event(
     state: &mut State,
-    read_guard_option: &mut Option<ReadEventsGuard>,
     event_queue: &mut EventQueue<State>,
+    read_guard: ReadEventsGuard,
 ) {
-    if let Some(read_guard) = read_guard_option.take() {
-        if let Err(e) = read_guard.read() {
-            // WouldBlock is normal here because of epoll false wakeups
-            if let WaylandError::Io(ref io_err) = e {
-                if io_err.kind() == io::ErrorKind::WouldBlock {
-                    return;
-                }
-            }
-            panic!("Failed to read Wayland events: {}", e)
-        }
-
-        if let Err(e) = event_queue.dispatch_pending(state) {
-            panic!("Failed to dispatch pending Wayland events: {}", e);
-        }
-    }
+    read_guard.read().expect("Failed to read Wayland events");
+    event_queue.dispatch_pending(state)
+        .expect("Failed to dispatch pending Wayland events");
 }
 
 fn handle_sway_event(

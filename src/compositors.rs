@@ -2,14 +2,16 @@ mod hyprland;
 mod niri;
 mod sway;
 
-use std::{env, os::unix::ffi::OsStrExt};
-
-use log::{debug, warn};
-use mio::Waker;
 use std::{
+    env,
+    os::unix::ffi::OsStrExt,
     sync::{mpsc::Sender, Arc},
     thread::spawn,
 };
+
+use log::{debug, warn};
+
+use crate::poll::Waker;
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum Compositor {
@@ -88,7 +90,7 @@ impl EventSender {
 
     fn send(&self, workspace: WorkspaceVisible) {
         self.tx.send(workspace).unwrap();
-        self.waker.wake().unwrap();
+        self.waker.wake();
     }
 }
 
@@ -157,7 +159,7 @@ impl ConnectionTask {
                 })
                 .unwrap();
 
-            self.waker.wake().unwrap();
+            self.waker.wake();
         }
     }
 
@@ -170,7 +172,7 @@ impl ConnectionTask {
                 })
                 .unwrap();
 
-            self.waker.wake().unwrap();
+            self.waker.wake();
         }
     }
 }

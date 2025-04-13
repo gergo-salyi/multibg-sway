@@ -2,7 +2,7 @@ use std::{
     ffi::c_int,
     io,
     mem::{ManuallyDrop, MaybeUninit},
-    os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd},
+    os::fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
     ptr,
     sync::atomic::{AtomicI32, Ordering::Relaxed},
 };
@@ -13,10 +13,11 @@ use libc::{
     sigaction, sigemptyset, signal, sigset_t, write,
 };
 use rustix::{
-    fs::{fcntl_setfl, OFlags},
-    io::{fcntl_setfd, FdFlags, read_uninit},
-    pipe::pipe,
+    fd::AsFd,
+    io::read_uninit,
 };
+
+use crate::poll::pipe_cloexec_nonblock;
 
 const TERM_SIGNALS: [c_int; 3] = [SIGHUP, SIGINT, SIGTERM];
 const OTHER_SIGNALS: [c_int; 2] = [SIGUSR1, SIGUSR2];
@@ -36,11 +37,7 @@ pub struct SignalPipe {
 impl SignalPipe {
     pub fn new() -> io::Result<SignalPipe> {
         unsafe {
-            let (read_half, write_half) = pipe()?;
-            fcntl_setfd(&read_half, FdFlags::CLOEXEC)?;
-            fcntl_setfd(&write_half, FdFlags::CLOEXEC)?;
-            fcntl_setfl(&read_half, OFlags::NONBLOCK)?;
-            fcntl_setfl(&write_half, OFlags::NONBLOCK)?;
+            let (read_half, write_half) = pipe_cloexec_nonblock()?;
             PIPE_FD.compare_exchange(
                 -1,
                 write_half.as_raw_fd(),
@@ -95,9 +92,9 @@ impl Drop for SignalPipe {
     }
 }
 
-impl AsRawFd for SignalPipe {
-    fn as_raw_fd(&self) -> RawFd {
-        self.read_half.as_raw_fd()
+impl AsFd for SignalPipe {
+    fn as_fd(&self) -> BorrowedFd {
+        self.read_half.as_fd()
     }
 }
 
