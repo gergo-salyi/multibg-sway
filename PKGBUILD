@@ -6,7 +6,7 @@ pkgdesc='Set a different wallpaper for the background of each Sway workspace'
 arch=('x86_64' 'i686' 'pentium4' 'armv7h' 'aarch64')
 url="https://github.com/gergo-salyi/multibg-sway"
 license=('MIT' 'Apache')
-depends=('gcc-libs' 'glibc')
+depends=('dav1d>=1.3.0' 'gcc-libs' 'glibc')
 makedepends=('cargo')
 optdepends=(
     'hyprland: supported window manager to set the wallpapers with'
@@ -26,7 +26,7 @@ build() {
     cd "$pkgname-$pkgver"
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
-    cargo build --frozen --release
+    cargo build --frozen --release --features avif
 }
 
 package() {
