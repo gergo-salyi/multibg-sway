@@ -1,17 +1,15 @@
-use std::path::PathBuf;
-
 use log::{debug, error, warn};
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry,
     delegate_shm,
-    compositor::{CompositorHandler, CompositorState, Region},
+    compositor::{CompositorHandler, Region},
     output::{OutputHandler, OutputState},
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     shell::{
         WaylandSurface,
         wlr_layer::{
-            Anchor, KeyboardInteractivity, Layer, LayerShell,
+            Anchor, KeyboardInteractivity, Layer,
             LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
         },
     },
@@ -24,7 +22,6 @@ use smithay_client_toolkit::reexports::client::{
     Connection, Dispatch, Proxy, QueueHandle,
     protocol::{
         wl_output::{self, Transform, WlOutput},
-        wl_shm,
         wl_surface::WlSurface
     },
 };
@@ -34,48 +31,9 @@ use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::{
 };
 
 use crate::{
+    State,
     image::workspace_bgs_from_output_image_dir,
-    compositors::ConnectionTask,
 };
-
-pub struct State {
-    pub compositor_state: CompositorState,
-    pub registry_state: RegistryState,
-    pub output_state: OutputState,
-    pub shm: Shm,
-    pub layer_shell: LayerShell,
-    pub viewporter: WpViewporter,
-    pub wallpaper_dir: PathBuf,
-    pub force_xrgb8888: bool,
-    pub pixel_format: Option<wl_shm::Format>,
-    pub background_layers: Vec<BackgroundLayer>,
-    pub compositor_connection_task: ConnectionTask,
-    pub brightness: i32,
-    pub contrast: f32,
-}
-
-impl State {
-    fn pixel_format(&mut self) -> wl_shm::Format
-    {
-        *self.pixel_format.get_or_insert_with(|| {
-
-            if !self.force_xrgb8888 {
-                // Consume less gpu memory by using Bgr888 if available,
-                // fall back to the always supported Xrgb8888 otherwise
-                for format in self.shm.formats() {
-                    if let wl_shm::Format::Bgr888 = format {
-                        debug!("Using pixel format: {:?}", format);
-                        return *format
-                    }
-                    // XXX: One may add Rgb888 and HDR support here
-                }
-            }
-
-            debug!("Using default pixel format: Xrgb8888");
-            wl_shm::Format::Xrgb8888
-        })
-    }
-}
 
 impl CompositorHandler for State
 {

@@ -7,7 +7,7 @@ mod wayland;
 use std::{
     io,
     os::fd::AsRawFd,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         Arc,
         mpsc::{channel, Receiver},
@@ -31,6 +31,7 @@ use smithay_client_toolkit::reexports::client::{
     Connection, EventQueue,
     backend::{ReadEventsGuard, WaylandError},
     globals::registry_queue_init,
+    protocol::wl_shm,
 };
 use smithay_client_toolkit::reexports::protocols
     ::wp::viewporter::client::wp_viewporter::WpViewporter;
@@ -39,8 +40,48 @@ use crate::{
     cli::{Cli, PixelFormat},
     compositors::{Compositor, ConnectionTask, WorkspaceVisible},
     signal::SignalPipe,
-    wayland::State,
+    wayland::BackgroundLayer,
 };
+
+pub struct State {
+    pub compositor_state: CompositorState,
+    pub registry_state: RegistryState,
+    pub output_state: OutputState,
+    pub shm: Shm,
+    pub layer_shell: LayerShell,
+    pub viewporter: WpViewporter,
+    pub wallpaper_dir: PathBuf,
+    pub force_xrgb8888: bool,
+    pub pixel_format: Option<wl_shm::Format>,
+    pub background_layers: Vec<BackgroundLayer>,
+    pub compositor_connection_task: ConnectionTask,
+    pub brightness: i32,
+    pub contrast: f32,
+}
+
+impl State {
+    fn pixel_format(&mut self) -> wl_shm::Format
+    {
+        *self.pixel_format.get_or_insert_with(|| {
+
+            if !self.force_xrgb8888 {
+                // Consume less gpu memory by using Bgr888 if available,
+                // fall back to the always supported Xrgb8888 otherwise
+                for format in self.shm.formats() {
+                    if let wl_shm::Format::Bgr888 = format {
+                        debug!("Using pixel format: {:?}", format);
+                        return *format
+                    }
+                    // XXX: One may add Rgb888 and HDR support here
+                }
+            }
+
+            debug!("Using default pixel format: Xrgb8888");
+            wl_shm::Format::Xrgb8888
+        })
+    }
+}
+
 
 fn main() -> Result<(), ()> {
     run().map_err(|e| { error!("{e:#}"); })
