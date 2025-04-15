@@ -293,7 +293,7 @@ logical size: {}x{}, transform: {:?}",
             },
             Err(e) => {
                 error!(
-            "Failed to get wallpapers for new output '{}' form '{:?}': {}",
+            "Failed to get wallpapers for new output '{}' form '{:?}': {:#}",
                     output_name, output_wallpaper_dir, e
                 );
                 return;
