@@ -18,14 +18,20 @@ use smithay_client_toolkit::reexports::client::protocol::wl_shm;
 
 use crate::wayland::WorkspaceBackground;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum ColorTransform {
+    // Levels { input_max: u8, input_min: u8, output_max: u8, output_min: u8 },
+    Legacy { brightness: i32, contrast: f32 },
+    None,
+}
+
 pub fn workspace_bgs_from_output_image_dir(
     dir_path: impl AsRef<Path>,
     slot_pool: &mut SlotPool,
     format: wl_shm::Format,
-    brightness: i32,
-    contrast: f32,
     width: u32,
     height: u32,
+    color_transform: ColorTransform,
 ) -> anyhow::Result<Vec<WorkspaceBackground>> {
     let mut buffers = Vec::new();
     let mut resizer = Resizer::new();
@@ -45,11 +51,10 @@ pub fn workspace_bgs_from_output_image_dir(
             entry_result,
             slot_pool,
             format,
-            brightness,
-            contrast,
             width,
             height,
             stride,
+            color_transform,
             &mut resizer
         ) {
             Ok(Some(workspace_bg)) => buffers.push(workspace_bg),
@@ -71,11 +76,10 @@ fn workspace_bg_from_file(
     dir_entry_result: io::Result<DirEntry>,
     slot_pool: &mut SlotPool,
     format: wl_shm::Format,
-    brightness: i32,
-    contrast: f32,
     width: u32,
     height: u32,
     stride: usize,
+    color_transform: ColorTransform,
     resizer: &mut Resizer,
 ) -> anyhow::Result<Option<WorkspaceBackground>> {
     let entry = dir_entry_result.context("Failed to read direectory")?;
@@ -91,11 +95,6 @@ fn workspace_bg_from_file(
         stride.try_into().unwrap(),
         format,
     ).context("Failed to create Wayland shared memory buffer")?;
-    let color_transform = if brightness == 0 && contrast == 0.0 {
-        ColorTransform::None
-    } else {
-        ColorTransform::Legacy { brightness, contrast }
-    };
     load_wallpaper(
         &path,
         &mut canvas[..stride * height as usize],
@@ -107,13 +106,6 @@ fn workspace_bg_from_file(
         resizer
     ).context("Failed to load wallpaper")?;
     Ok(Some(WorkspaceBackground { workspace_name, buffer }))
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum ColorTransform {
-    // Levels { input_max: u8, input_min: u8, output_max: u8, output_min: u8 },
-    Legacy { brightness: i32, contrast: f32 },
-    None,
 }
 
 fn load_wallpaper(

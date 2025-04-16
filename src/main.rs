@@ -40,6 +40,7 @@ use smithay_client_toolkit::reexports::protocols
 use crate::{
     cli::{Cli, PixelFormat},
     compositors::{Compositor, ConnectionTask, WorkspaceVisible},
+    image::ColorTransform,
     poll::{Poll, Waker},
     signal::SignalPipe,
     wayland::BackgroundLayer,
@@ -57,8 +58,7 @@ pub struct State {
     pub pixel_format: Option<wl_shm::Format>,
     pub background_layers: Vec<BackgroundLayer>,
     pub compositor_connection_task: ConnectionTask,
-    pub brightness: i32,
-    pub contrast: f32,
+    pub color_transform: ColorTransform,
 }
 
 impl State {
@@ -103,6 +103,13 @@ fn run() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
     let wallpaper_dir = Path::new(&cli.wallpaper_dir).canonicalize().unwrap();
+    let brightness = cli.brightness.unwrap_or(0);
+    let contrast = cli.contrast.unwrap_or(0.0);
+    let color_transform = if brightness == 0 && contrast == 0.0 {
+        ColorTransform::None
+    } else {
+        ColorTransform::Legacy { brightness, contrast }
+    };
 
     // ********************************
     //     Initialize wayland client
@@ -145,8 +152,7 @@ fn run() -> anyhow::Result<()> {
             compositor,
             tx.clone(), Arc::clone(&waker)
         ),
-        brightness: cli.brightness.unwrap_or(0),
-        contrast: cli.contrast.unwrap_or(0.0),
+        color_transform,
     };
 
     event_queue.roundtrip(&mut state).unwrap();

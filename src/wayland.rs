@@ -276,10 +276,9 @@ logical size: {}x{}, transform: {:?}",
             &output_wallpaper_dir,
             &mut shm_slot_pool,
             pixel_format,
-            self.brightness,
-            self.contrast,
             width.try_into().unwrap(),
-            height.try_into().unwrap()
+            height.try_into().unwrap(),
+            self.color_transform,
         ) {
             Ok(workspace_bgs) => {
                 debug!(
