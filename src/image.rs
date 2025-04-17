@@ -1,9 +1,9 @@
 #![allow(clippy::too_many_arguments)]
 
 use std::{
-    fs::{DirEntry, read_dir},
-    io,
-    path::Path,
+    fs::read_dir,
+    path::{Path, PathBuf},
+    time::UNIX_EPOCH,
 };
 
 use anyhow::{bail, Context};
@@ -13,10 +13,7 @@ use fast_image_resize::{
 };
 use image::{ColorType, DynamicImage, ImageBuffer, ImageDecoder, ImageReader};
 use log::{debug, error, warn};
-use smithay_client_toolkit::shm::slot::SlotPool;
 use smithay_client_toolkit::reexports::client::protocol::wl_shm;
-
-use crate::wayland::WorkspaceBackground;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ColorTransform {
@@ -25,90 +22,56 @@ pub enum ColorTransform {
     None,
 }
 
-pub fn workspace_bgs_from_output_image_dir(
-    dir_path: impl AsRef<Path>,
-    slot_pool: &mut SlotPool,
-    format: wl_shm::Format,
-    width: u32,
-    height: u32,
-    color_transform: ColorTransform,
-) -> anyhow::Result<Vec<WorkspaceBackground>> {
-    let mut buffers = Vec::new();
-    let mut resizer = Resizer::new();
-    let stride = match format {
-        wl_shm::Format::Xrgb8888 => width as usize * 4,
-        wl_shm::Format::Bgr888 => {
-            // Align buffer stride to both 4 and pixel format block size
-            // Not being aligned to 4 caused
-            // https://github.com/gergo-salyi/multibg-sway/issues/6
-            (width as usize * 3).next_multiple_of(4)
-        },
-        _ => unreachable!()
-    };
-    let dir = read_dir(&dir_path).context("Failed to open directory")?;
-    for entry_result in dir {
-        match workspace_bg_from_file(
-            entry_result,
-            slot_pool,
-            format,
-            width,
-            height,
-            stride,
-            color_transform,
-            &mut resizer
-        ) {
-            Ok(Some(workspace_bg)) => buffers.push(workspace_bg),
-            Ok(None) => continue,
+pub struct WallpaperFile {
+    pub path: PathBuf,
+    pub workspace: String,
+    pub canon_path: PathBuf,
+    pub canon_modified: u128,
+}
+
+pub fn output_wallpaper_files(
+    output_dir: &Path
+) -> anyhow::Result<Vec<WallpaperFile>> {
+    let dir = read_dir(output_dir).context("Failed to read directory")?;
+    let mut ret = Vec::new();
+    for dir_entry_result in dir {
+        let dir_entry = match dir_entry_result {
+            Ok(dir_entry) => dir_entry,
             Err(e) => {
-                error!("Skipping a directory entry in {:?} \
-                    due to an error: {:#}", dir_path.as_ref(), e);
-                continue;
+                error!("Failed to read directory entries: {e}");
+                break
             }
+        };
+        let path = dir_entry.path();
+        if path.is_dir() {
+            warn!("Skipping nested directory {path:?}");
+            continue
         }
+        let workspace = path.file_stem().unwrap()
+            .to_string_lossy().into_owned();
+        let canon_path = match path.canonicalize() {
+            Ok(canon_path) => canon_path,
+            Err(e) => {
+                error!("Failed to resolve absolute path for {path:?}: {e}");
+                continue
+            }
+        };
+        let canon_metadata = match canon_path.metadata() {
+            Ok(canon_metadata) => canon_metadata,
+            Err(e) => {
+                error!("Failed to get file metadata for {canon_path:?}: {e}");
+                continue
+            }
+        };
+        let canon_modified = canon_metadata.modified().unwrap()
+            .duration_since(UNIX_EPOCH).unwrap()
+            .as_nanos();
+        ret.push(WallpaperFile { path, workspace, canon_path, canon_modified });
     }
-    if buffers.is_empty() {
-        bail!("Found no suitable images in the directory")
-    }
-    Ok(buffers)
+    Ok(ret)
 }
 
-fn workspace_bg_from_file(
-    dir_entry_result: io::Result<DirEntry>,
-    slot_pool: &mut SlotPool,
-    format: wl_shm::Format,
-    width: u32,
-    height: u32,
-    stride: usize,
-    color_transform: ColorTransform,
-    resizer: &mut Resizer,
-) -> anyhow::Result<Option<WorkspaceBackground>> {
-    let entry = dir_entry_result.context("Failed to read direectory")?;
-    let path = entry.path();
-    // Skip dirs
-    if path.is_dir() { return Ok(None) }
-    // Use the file stem as the name of the workspace for this wallpaper
-    let workspace_name = path.file_stem().unwrap()
-        .to_string_lossy().into_owned();
-    let (buffer, canvas) = slot_pool.create_buffer(
-        width.try_into().unwrap(),
-        height.try_into().unwrap(),
-        stride.try_into().unwrap(),
-        format,
-    ).context("Failed to create Wayland shared memory buffer")?;
-    load_wallpaper(
-        &path,
-        &mut canvas[..stride * height as usize],
-        width,
-        height,
-        stride,
-        format,
-        color_transform,
-        resizer
-    ).context("Failed to load wallpaper")?;
-    Ok(Some(WorkspaceBackground { workspace_name, buffer }))
-}
-
-fn load_wallpaper(
+pub fn load_wallpaper(
     path: &Path,
     dst: &mut [u8],
     surface_width: u32,

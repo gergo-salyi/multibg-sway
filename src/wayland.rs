@@ -1,3 +1,9 @@
+use std::{
+    cell::Cell,
+    path::PathBuf,
+    rc::Rc,
+};
+
 use log::{debug, error, warn};
 use smithay_client_toolkit::{
     delegate_compositor, delegate_layer, delegate_output, delegate_registry,
@@ -15,14 +21,16 @@ use smithay_client_toolkit::{
     },
     shm::{
         Shm, ShmHandler,
-        slot::{Buffer, SlotPool},
+        raw::RawPool,
     },
 };
 use smithay_client_toolkit::reexports::client::{
     Connection, Dispatch, Proxy, QueueHandle,
     protocol::{
+        wl_buffer::WlBuffer,
         wl_output::{self, Transform, WlOutput},
-        wl_surface::WlSurface
+        wl_shm,
+        wl_surface::WlSurface,
     },
 };
 use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::{
@@ -32,7 +40,7 @@ use smithay_client_toolkit::reexports::protocols::wp::viewporter::client::{
 
 use crate::{
     State,
-    image::workspace_bgs_from_output_image_dir,
+    image::{load_wallpaper, output_wallpaper_files, WallpaperFile},
 };
 
 impl CompositorHandler for State
@@ -265,46 +273,118 @@ logical size: {}x{}, transform: {:?}",
         layer.commit();
 
         let pixel_format = self.pixel_format();
-
-        let output_wallpaper_dir = self.wallpaper_dir.join(&output_name);
-
-        // Initialize slot pool with a minimum size (0 is not allowed)
-        // it will be automatically resized later
-        let mut shm_slot_pool = SlotPool::new(1, &self.shm).unwrap();
-
-        let workspace_backgrounds = match workspace_bgs_from_output_image_dir(
-            &output_wallpaper_dir,
-            &mut shm_slot_pool,
-            pixel_format,
-            width.try_into().unwrap(),
-            height.try_into().unwrap(),
-            self.color_transform,
-        ) {
-            Ok(workspace_bgs) => {
-                debug!(
-                    "Loaded {} wallpapers on new output for workspaces: {}",
-                    workspace_bgs.len(),
-                    workspace_bgs.iter()
-                        .map(|workspace_bg| workspace_bg.workspace_name.as_str())
-                        .collect::<Vec<_>>().join(", ")
-                );
-                workspace_bgs
-            },
+        let output_dir = self.wallpaper_dir.join(&output_name);
+        debug!("Looking for wallpapers for new output {} in {:?}",
+            output_name, output_dir);
+        let wallpaper_files = match output_wallpaper_files(&output_dir) {
+            Ok(wallpaper_files) => wallpaper_files,
             Err(e) => {
-                error!(
-            "Failed to get wallpapers for new output '{}' form '{:?}': {:#}",
-                    output_name, output_wallpaper_dir, e
-                );
-                return;
+                error!("Failed to get wallpapers for new output {output_name} \
+                    form {output_dir:?}: {e:#}");
+                return
             }
         };
-
-        debug!(
-        "Shm slot pool size for output '{}' after loading wallpapers: {} KiB",
-            output_name,
-            shm_slot_pool.len() / 1024
-        );
-
+        let mut workspace_backgrounds = Vec::new();
+        let mut resizer = fast_image_resize::Resizer::new();
+        let mut reused_count = 0usize;
+        let mut loaded_count = 0usize;
+        let mut error_count = 0usize;
+        for wallpaper_file in wallpaper_files {
+            if log::log_enabled!(log::Level::Debug) {
+                if wallpaper_file.path == wallpaper_file.canon_path {
+                    debug!("Wallpaper file {:?} for workspace {}",
+                        wallpaper_file.path, wallpaper_file.workspace);
+                } else {
+                    debug!("Wallpaper file {:?} -> {:?} for workspace {}",
+                        wallpaper_file.path, wallpaper_file.canon_path,
+                        wallpaper_file.workspace);
+                }
+            }
+            if let Some(wallpaper) = find_equal_output_wallpaper(
+                &workspace_backgrounds,
+                &wallpaper_file
+            ) {
+                workspace_backgrounds.push(WorkspaceBackground {
+                    workspace_name: wallpaper_file.workspace,
+                    wallpaper
+                });
+                reused_count += 1;
+                continue
+            }
+            if let Some(wallpaper) = find_equal_wallpaper(
+                &self.background_layers,
+                width,
+                height,
+                info.transform,
+                &wallpaper_file
+            ) {
+                workspace_backgrounds.push(WorkspaceBackground {
+                    workspace_name: wallpaper_file.workspace,
+                    wallpaper
+                });
+                reused_count += 1;
+                continue
+            }
+            let stride = match pixel_format {
+                wl_shm::Format::Xrgb8888 => width as usize * 4,
+                wl_shm::Format::Bgr888 => {
+                    // Align buffer stride to both 4 and pixel format
+                    // block size. Not being aligned to 4 caused
+                    // https://github.com/gergo-salyi/multibg-sway/issues/6
+                    (width as usize * 3).next_multiple_of(4)
+                },
+                _ => unreachable!()
+            };
+            let shm_size = stride * height as usize;
+            let mut shm_pool = match RawPool::new(shm_size, &self.shm) {
+                Ok(shm_pool) => shm_pool,
+                Err(e) => {
+                    error!("Failed to create shm pool: {e}");
+                    error_count += 1;
+                    continue
+                }
+            };
+            if let Err(e) = load_wallpaper(
+                &wallpaper_file.path,
+                &mut shm_pool.mmap()[..shm_size],
+                width as u32,
+                height as u32,
+                stride,
+                pixel_format,
+                self.color_transform,
+                &mut resizer
+            ) {
+                error!("Failed to load wallpaper: {e:#}");
+                error_count += 1;
+                continue
+            }
+            let wl_buffer = shm_pool.create_buffer(
+                0,
+                width,
+                height,
+                stride.try_into().unwrap(),
+                pixel_format,
+                (),
+                qh
+            );
+            workspace_backgrounds.push(WorkspaceBackground {
+                workspace_name: wallpaper_file.workspace,
+                wallpaper: Rc::new(Wallpaper {
+                    wl_buffer,
+                    active_count: Cell::new(0),
+                    shm_pool,
+                    canon_path: wallpaper_file.canon_path,
+                    canon_modified: wallpaper_file.canon_modified,
+                })
+            });
+            loaded_count += 1;
+        }
+        debug!("Wallpapers for new output: {} reused, {} loaded, {} errors",
+            reused_count, loaded_count, error_count);
+        debug!("Wallpapers are available for workspaces: {}",
+            workspace_backgrounds.iter()
+                .map(|bg| bg.workspace_name.as_str())
+                .collect::<Vec<_>>().join(", "));
         self.background_layers.push(BackgroundLayer {
             output_name,
             width,
@@ -312,16 +392,11 @@ logical size: {}x{}, transform: {:?}",
             layer,
             configured: false,
             workspace_backgrounds,
-            shm_slot_pool,
+            current_workspace: None,
+            transform: info.transform,
             viewport,
         });
-
-        debug!(
-            "New sum of shm slot pool sizes for all outputs: {} KiB",
-            self.background_layers.iter()
-                .map(|bg_layer| bg_layer.shm_slot_pool.len())
-                .sum::<usize>() / 1024
-        );
+        print_memory_stats(&self.background_layers);
     }
 
     fn update_output(
@@ -496,16 +571,6 @@ Restart multibg-sway or expect broken wallpapers or low quality due to scaling"
                     .collect::<Vec<_>>().join(", ")
             );
 
-            for workspace_bg in removed_bg_layer.workspace_backgrounds.iter() {
-                if workspace_bg.buffer.slot().has_active_buffers() {
-                    warn!(
-"On destroyed output '{}' workspace background '{}' will be dropped while its shm slot still has active buffers",
-                        output_name,
-                        workspace_bg.workspace_name,
-                    );
-                }
-            }
-
             drop(removed_bg_layer);
         }
         else {
@@ -518,12 +583,7 @@ Restart multibg-sway or expect broken wallpapers or low quality due to scaling"
             );
         }
 
-        debug!(
-            "New sum of shm slot pool sizes for all outputs: {} KiB",
-            self.background_layers.iter()
-                .map(|bg_layer| bg_layer.shm_slot_pool.len())
-                .sum::<usize>() / 1024
-        );
+        print_memory_stats(&self.background_layers);
     }
 }
 
@@ -572,6 +632,35 @@ impl Dispatch<WpViewport, ()> for State {
     }
 }
 
+impl Dispatch<WlBuffer, ()> for State {
+    fn event(
+        state: &mut Self,
+        proxy: &WlBuffer,
+        _event: <WlBuffer as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        for bg_layer in state.background_layers.iter_mut() {
+            for bg in bg_layer.workspace_backgrounds.iter_mut() {
+                if bg.wallpaper.wl_buffer == *proxy {
+                    let active_count = bg.wallpaper.active_count.get();
+                    if let Some(new_count) = active_count.checked_sub(1) {
+                        debug!("Compositor released the wl_shm wl_buffer \
+                            of {:?}", bg.wallpaper.canon_path);
+                        bg.wallpaper.active_count.set(new_count);
+                    } else {
+                        error!("Unexpected release event for the wl_shm \
+                            wl_buffer of {:?}", bg.wallpaper.canon_path);
+                    }
+                    return
+                }
+            }
+        }
+        warn!("Release event for already destroyed wl_shm wl_buffer");
+    }
+}
+
 pub struct BackgroundLayer {
     pub output_name: String,
     pub width: i32,
@@ -579,7 +668,8 @@ pub struct BackgroundLayer {
     pub layer: LayerSurface,
     pub configured: bool,
     pub workspace_backgrounds: Vec<WorkspaceBackground>,
-    pub shm_slot_pool: SlotPool,
+    pub current_workspace: Option<String>,
+    pub transform: Transform,
     pub viewport: Option<WpViewport>,
 }
 impl BackgroundLayer
@@ -592,6 +682,12 @@ impl BackgroundLayer
                 self.output_name
             );
             return;
+        }
+
+        if self.current_workspace.as_deref() == Some(workspace_name) {
+            debug!("Skipping draw on output {} for workspace {} because its \
+                wallpaper is already set", self.output_name, workspace_name);
+            return
         }
 
         let Some(workspace_bg) = self.workspace_backgrounds.iter()
@@ -611,30 +707,18 @@ impl BackgroundLayer
             return;
         };
 
-        if workspace_bg.buffer.slot().has_active_buffers() {
-            debug!(
-"Skipping draw on output '{}' for workspace '{}' because its buffer already active",
-                self.output_name,
-                workspace_name,
-            );
-            return;
-        }
-
         // Attach and commit to new workspace background
-        if let Err(e) = workspace_bg.buffer.attach_to(self.layer.wl_surface()) {
-            error!(
-            "Error attaching buffer of workspace '{}' on output '{}': {:#?}",
-                workspace_name,
-                self.output_name,
-                e
-            );
-            return;
-        }
+        self.layer.attach(Some(&workspace_bg.wallpaper.wl_buffer), 0, 0);
+        workspace_bg.wallpaper.active_count.set(
+            workspace_bg.wallpaper.active_count.get() + 1
+        );
 
         // Damage the entire surface
         self.layer.wl_surface().damage_buffer(0, 0, self.width, self.height);
 
         self.layer.commit();
+
+        self.current_workspace = Some(workspace_name.to_string());
 
         debug!(
             "Setting wallpaper on output '{}' for workspace: {}",
@@ -645,9 +729,86 @@ impl BackgroundLayer
 
 pub struct WorkspaceBackground {
     pub workspace_name: String,
-    pub buffer: Buffer,
+    pub wallpaper: Rc<Wallpaper>,
+}
+
+pub struct Wallpaper {
+    pub wl_buffer: WlBuffer,
+    pub active_count: Cell<usize>,
+    pub shm_pool: RawPool,
+    pub canon_path: PathBuf,
+    pub canon_modified: u128,
+}
+
+impl Drop for Wallpaper {
+    fn drop(&mut self) {
+        if self.active_count.get() != 0 {
+            warn!("Destroying a {} times active wl_buffer of wallpaper {:?}",
+                self.active_count.get(), self.canon_path);
+        }
+        self.wl_buffer.destroy();
+    }
 }
 
 fn layer_surface_name(output_name: &str) -> Option<String> {
     Some([env!("CARGO_PKG_NAME"), "_wallpaper_", output_name].concat())
+}
+
+fn find_equal_wallpaper(
+    background_layers: &[BackgroundLayer],
+    width: i32,
+    height: i32,
+    transform: Transform,
+    wallpaper_file: &WallpaperFile
+) -> Option<Rc<Wallpaper>> {
+    for bg_layer in background_layers {
+        if bg_layer.width == width
+            && bg_layer.height == height
+            && bg_layer.transform == transform
+        {
+            for bg in &bg_layer.workspace_backgrounds {
+                if bg.wallpaper.canon_modified == wallpaper_file.canon_modified
+                    && bg.wallpaper.canon_path == wallpaper_file.canon_path
+                {
+                    debug!("Reusing the wallpaper of output {} workspace {}",
+                        bg_layer.output_name, bg.workspace_name);
+                    return Some(Rc::clone(&bg.wallpaper));
+                }
+            }
+        }
+    }
+    None
+}
+
+fn find_equal_output_wallpaper(
+    workspace_backgrounds: &[WorkspaceBackground],
+    wallpaper_file: &WallpaperFile
+) -> Option<Rc<Wallpaper>> {
+    for bg in workspace_backgrounds {
+        if bg.wallpaper.canon_modified == wallpaper_file.canon_modified
+            && bg.wallpaper.canon_path == wallpaper_file.canon_path
+        {
+            debug!("Reusing the wallpaper of workspace {}",
+                bg.workspace_name);
+            return Some(Rc::clone(&bg.wallpaper));
+        }
+    }
+    None
+}
+
+fn print_memory_stats(background_layers: &[BackgroundLayer]) {
+    if log::log_enabled!(log::Level::Debug) {
+        let mut wl_shm_count = 0.0f32;
+        let mut wl_shm_size = 0.0f32;
+        for bg_layer in background_layers {
+            for bg in &bg_layer.workspace_backgrounds {
+                let factor = 1.0 / Rc::strong_count(&bg.wallpaper) as f32;
+                wl_shm_count += factor;
+                wl_shm_size += factor * bg.wallpaper.shm_pool.len() as f32;
+            }
+        }
+        let count = (wl_shm_count + 0.5) as usize;
+        let size_kb = (wl_shm_size + 0.5) as usize / 1024;
+        debug!("Memory use: {size_kb} KiB from {count} wl_shm pools");
+    }
 }
